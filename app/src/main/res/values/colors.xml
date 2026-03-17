@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary palette -->
+    <color name="purple_primary">#6C2BEE</color>
+    <color name="purple_dark">#4A1DB0</color>
+    <color name="purple_light">#9B6EFF</color>
+    <color name="blue_primary">#2B7AEE</color>
+    <color name="blue_dark">#1A5BBF</color>
+    <color name="cyan_accent">#00E5FF</color>
+    <color name="cyan_glow">#4D00E5FF</color>
+
+    <!-- Status colors -->
+    <color name="success_green">#00C853</color>
+    <color name="danger_red">#FF1744</color>
+    <color name="warning_amber">#FFD600</color>
+    <color name="info_blue">#448AFF</color>
+
+    <!-- Background & Surface -->
+    <color name="bg_dark">#0D0B1A</color>
+    <color name="bg_surface">#1A1432</color>
+    <color name="bg_card">#1F1940</color>
+    <color name="bg_glass">#1AFFFFFF</color>
+    <color name="bg_glass_border">#33FFFFFF</color>
+
+    <!-- Text -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B8B5C8</color>
+    <color name="text_tertiary">#6B6780</color>
+
+    <!-- Gradients (start/end pairs) -->
+    <color name="gradient_purple_start">#6C2BEE</color>
+    <color name="gradient_purple_end">#2B7AEE</color>
+    <color name="gradient_red_start">#FF1744</color>
+    <color name="gradient_red_end">#D50000</color>
+    <color name="gradient_green_start">#00E676</color>
+    <color name="gradient_green_end">#00C853</color>
+
+    <!-- System & UI Defaults -->
+    <color name="white">#FFFFFF</color>
+    <color name="accent_blue">#2B7AEE</color>
+    <color name="glass_white_05">#0DFFFFFF</color>
+    <color name="glass_white_10">#1AFFFFFF</color>
+    <color name="glass_white_50">#80FFFFFF</color>
+    <color name="glass_white_70">#B3FFFFFF</color>
+    <color name="glass_white_20">#33FFFFFF</color>
+    <color name="error_red">#FF1744</color>
+
+    <color name="colorPrimary">@color/purple_primary</color>
+    <color name="colorPrimaryDark">@color/purple_dark</color>
+    <color name="colorAccent">@color/cyan_accent</color>
+    <color name="statusBarColor">@color/bg_dark</color>
+    <color name="navigationBarColor">@color/bg_dark</color>
+</resources>

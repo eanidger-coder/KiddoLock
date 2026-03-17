@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Custom permission so only KiddoLock can send emergency broadcasts -->
+    <permission
+        android:name="com.kiddolock.app.ADMIN"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <application
+        android:name=".KiddoLockApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.KiddoLock"
+        tools:targetApi="31">
+
+        <!-- Device Admin Receiver (Anti-uninstall) -->
+        <receiver
+            android:name=".receivers.KiddoDeviceAdminReceiver"
+            android:description="@string/device_admin_description"
+            android:label="@string/device_admin_label"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- Boot Receiver -->
+        <receiver
+            android:name=".receivers.BootReceiver"
+            android:exported="true"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Accessibility Service (App Blocking + Time Enforcement) -->
+        <service
+            android:name=".services.KiddoLockAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:foregroundServiceType="dataSync"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- Main Dashboard -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Setup Wizard -->
+        <activity
+            android:name=".ui.SetupActivity"
+            android:exported="true"
+            android:label="הגדרות ראשוניות"
+            android:theme="@style/Theme.KiddoLock" />
+
+        <!-- Admin Dashboard -->
+        <activity
+            android:name=".ui.AdminActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.KiddoLock" />
+
+        <!-- Admin PIN -->
+        <activity
+            android:name=".ui.ParentInsightsActivity"
+            android:label="@string/weekly_report_channel_name"
+            android:theme="@style/Theme.KiddoLock" />
+        
+        <activity
+            android:name=".ui.AdminPinActivity"
+            android:exported="false"
+            android:label="אימות מנהל"
+            android:theme="@style/Theme.KiddoLock"
+            android:windowSoftInputMode="stateVisible" />
+
+
+
+
+        <activity
+            android:name=".ui.HelpActivity"
+            android:exported="false"
+            android:label="עזרה ואודות"
+            android:theme="@style/Theme.KiddoLock" />
+
+        <!-- Emergency Receiver -->
+        <receiver
+            android:name=".receivers.EmergencyReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.kiddolock.app.EMERGENCY_UNLOCK" />
+                <action android:name="com.kiddolock.app.EMERGENCY_DISABLE" />
+                <action android:name="com.kiddolock.app.EMERGENCY_UNINSTALL" />
+                <action android:name="com.kiddolock.app.TEST_TRIGGER_BEDTIME" />
+                <action android:name="com.kiddolock.app.TEST_SET_INSTANT_LOCK" />
+                <action android:name="com.kiddolock.app.TEST_DUMP_STATE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Block Overlay Service -->
+        <service
+            android:name=".ui.OverlayService"
+            android:exported="false" />
+
+    </application>
+</manifest>
