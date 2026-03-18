@@ -24,6 +24,8 @@ class AdminPinActivity : AppCompatActivity() {
     private var pinBuffer = StringBuilder()
 
     private var isSettingUp = false
+    private var isChangingPin = false
+    private var isVerifyingCurrentForChange = false
     private var firstPinEntry: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,8 +47,14 @@ class AdminPinActivity : AppCompatActivity() {
         setupKeypad()
 
         isSettingUp = !AdminPinManager.isPinSet(this)
+        isChangingPin = intent.getBooleanExtra("CHANGE_PIN_MODE", false)
 
-        if (isSettingUp) {
+        if (isChangingPin) {
+            isVerifyingCurrentForChange = true
+            tvTitle.text = getString(R.string.enter_current_pin)
+            tvSubtitle.text = getString(R.string.wrong_pin_shake_hint)
+            tvForgot.visibility = View.VISIBLE
+        } else if (isSettingUp) {
             tvTitle.text = getString(R.string.set_admin_pin)
             tvSubtitle.text = getString(R.string.choose_new_pin)
             tvForgot.visibility = View.GONE
@@ -235,53 +243,79 @@ class AdminPinActivity : AppCompatActivity() {
                     tvSubtitle.text = "בחר קוד חדש"
                 }
             }
+        } else if (isVerifyingCurrentForChange) {
+            val result = AdminPinManager.verifyPin(this, entry)
+            if (result is AdminPinManager.PinResult.Success) {
+                // Verified current PIN, now allow setting a new one
+                isVerifyingCurrentForChange = false
+                isSettingUp = true
+                firstPinEntry = null
+                pinBuffer.setLength(0)
+                updateDots()
+                tvTitle.text = getString(R.string.set_new_pin)
+                tvSubtitle.text = getString(R.string.choose_new_pin)
+                tvForgot.visibility = View.GONE
+                Toast.makeText(this, "הקוד אומת. בחר קוד חדש.", Toast.LENGTH_SHORT).show()
+            } else {
+                handlePinError(result)
+            }
         } else {
             val result = AdminPinManager.verifyPin(this, entry)
-            runOnUiThread {
-                when (result) {
-                    is AdminPinManager.PinResult.Success -> {
-                        // Check if we were sent here for an emergency action
-                        when (intent.action) {
-                            "com.kiddolock.app.EMERGENCY_NEUTRALIZE" -> {
-                                AppBlockManager.neutralize(this)
-                                Toast.makeText(this, R.string.overlay_neutralize_success, Toast.LENGTH_LONG).show()
-                            }
-                            "com.kiddolock.app.EMERGENCY_UNINSTALL" -> {
-                                AppBlockManager.uninstallSelf(this)
-                            }
-                            "com.kiddolock.app.ADMIN_AUTH" -> {
-                                AdminActivity.isSessionAuthorized = true
-                                Log.d("AdminPinActivity", "Admin session authorized via PIN")
-                            }
-                            else -> {
-                                val pendingUnlockPkg = intent.getStringExtra("PENDING_UNLOCK_PKG")
-                                if (pendingUnlockPkg != null) {
-                                    AppBlockManager.temporaryUnlock(this, pendingUnlockPkg)
-                                    Toast.makeText(this, "האפליקציה שוחררה ל-5 דקות", Toast.LENGTH_LONG).show()
-                                }
+            handlePinResult(result)
+        }
+    }
+
+    private fun handlePinResult(result: AdminPinManager.PinResult) {
+        runOnUiThread {
+            when (result) {
+                is AdminPinManager.PinResult.Success -> {
+                    // Check if we were sent here for an emergency action
+                    when (intent.action) {
+                        "com.kiddolock.app.EMERGENCY_NEUTRALIZE" -> {
+                            AppBlockManager.neutralize(this)
+                            Toast.makeText(this, R.string.overlay_neutralize_success, Toast.LENGTH_LONG).show()
+                        }
+                        "com.kiddolock.app.EMERGENCY_UNINSTALL" -> {
+                            AppBlockManager.uninstallSelf(this)
+                        }
+                        "com.kiddolock.app.ADMIN_AUTH" -> {
+                            AdminActivity.isSessionAuthorized = true
+                            Log.d("AdminPinActivity", "Admin session authorized via PIN")
+                        }
+                        else -> {
+                            val pendingUnlockPkg = intent.getStringExtra("PENDING_UNLOCK_PKG")
+                            if (pendingUnlockPkg != null) {
+                                AppBlockManager.temporaryUnlock(this, pendingUnlockPkg)
+                                Toast.makeText(this, "האפליקציה שוחררה ל-5 דקות", Toast.LENGTH_LONG).show()
                             }
                         }
-                        
-                        setResult(RESULT_OK)
-                        finish()
                     }
-                    is AdminPinManager.PinResult.Locked -> {
-                        Toast.makeText(this, "המכשיר נעול לעוד ${result.remainingSeconds} שניות", Toast.LENGTH_SHORT).show()
-                    }
-                    is AdminPinManager.PinResult.WrongPin -> {
-                        Toast.makeText(this, "קוד שגוי (נותרו ${result.remainingAttempts} ניסיונות)", Toast.LENGTH_SHORT).show()
-                        pinBuffer.setLength(0)
-                        updateDots()
-                        
-                        // Shake animation for premium feel
-                        val shake = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.shake)
-                        findViewById<View>(R.id.pinIndicatorContainer).startAnimation(shake)
-                    }
-                    is AdminPinManager.PinResult.NoPinSet -> {
-                        Toast.makeText(this, "לא הוגדר קוד הגישה", Toast.LENGTH_SHORT).show()
-                    }
+                    
+                    setResult(RESULT_OK)
+                    finish()
+                }
+                is AdminPinManager.PinResult.Locked -> {
+                    Toast.makeText(this, "המכשיר נעול לעוד ${result.remainingSeconds} שניות", Toast.LENGTH_SHORT).show()
+                }
+                is AdminPinManager.PinResult.WrongPin -> {
+                    handlePinError(result)
+                }
+                is AdminPinManager.PinResult.NoPinSet -> {
+                    Toast.makeText(this, "לא הוגדר קוד הגישה", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private fun handlePinError(result: AdminPinManager.PinResult) {
+        if (result is AdminPinManager.PinResult.WrongPin) {
+            Toast.makeText(this, "קוד שגוי (נותרו ${result.remainingAttempts} ניסיונות)", Toast.LENGTH_SHORT).show()
+            pinBuffer.setLength(0)
+            updateDots()
+            
+            // Shake animation for premium feel
+            val shake = android.view.animation.AnimationUtils.loadAnimation(this, R.anim.shake)
+            findViewById<View>(R.id.pinIndicatorContainer).startAnimation(shake)
         }
     }
 }

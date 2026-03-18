@@ -88,6 +88,7 @@ object AppBlockManager {
     @Volatile
     var isGlobalSuppressed: Boolean = false
 
+
     // --- CACHED instances to avoid re-creating on every event ---
     private var cachedAppManager: AppManager? = null
     private var cachedKidsModeManager: KidsModeManager? = null
@@ -153,14 +154,6 @@ object AppBlockManager {
             return false
         }
 
-        // 0.06 CRITICAL IMMUTABLE PROTECTION: Block settings/browsers/stores by default in Kids Mode
-        // This check is performed AFTER whitelist to avoid blocking loops on home screen.
-        if (isKidsModeEnabled) {
-            if (isCriticalApp(packageName)) {
-                Log.w("AppBlockManager", "[DECISION] BLOCK $packageName: IMMUTABLE protection active in Kids Mode")
-                return true
-            }
-        }
 
         if (!isKidsModeEnabled) {
             Log.v("AppBlockManager", "[DECISION] ALLOW $packageName: Kids Mode is DISABLED (Master Switch)")
@@ -193,6 +186,12 @@ object AppBlockManager {
                 // In Kids Mode, we check the standard blacklist.
                 if (appManager.isBlacklisted(packageName)) {
                     Log.d("AppBlockManager", "[DECISION] BLOCK $packageName: Specifically blacklisted in Kids Mode")
+                    return true
+                }
+                
+                // 0.2 Check for Critical Safeguards (moved after bypass)
+                if (isCriticalApp(packageName)) {
+                    Log.w("AppBlockManager", "[DECISION] BLOCK $packageName: Critical app restriction (Kids Mode)")
                     return true
                 }
                 

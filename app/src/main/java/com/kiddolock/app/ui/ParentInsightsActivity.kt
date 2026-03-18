@@ -12,11 +12,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Modern 2026 Parent Insights screen using AI to summarize child activity.
+ * Modern 2026 Parent Insights screen summarizing child activity based on real usage data.
  */
 class ParentInsightsActivity : AppCompatActivity() {
     
-    private lateinit var tvAiSummary: TextView
+    private lateinit var tvUsageSummary: TextView
     private lateinit var tvPersonalTip: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,7 +26,7 @@ class ParentInsightsActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = "דוח שימוש יומי"
         
-        tvAiSummary = findViewById(R.id.tvAiSummary)
+        tvUsageSummary = findViewById(R.id.tvUsageSummary)
         tvPersonalTip = findViewById(R.id.tvPersonalTip)
         
         loadDataReport()
@@ -54,7 +54,7 @@ class ParentInsightsActivity : AppCompatActivity() {
                 
                 // 3. Update UI on main thread
                 withContext(Dispatchers.Main) {
-                    tvAiSummary.text = reportText
+                    tvUsageSummary.text = reportText
                     
                     // Simple logic for personal tip based on most used category
                     val topCategory = usageMap.maxByOrNull { it.totalMinutes }?.category ?: "Other"
@@ -69,7 +69,7 @@ class ParentInsightsActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    tvAiSummary.text = "שגיאה בטעינת הנתונים: ${e.message}"
+                    tvUsageSummary.text = "שגיאה בטעינת הנתונים: ${e.message}"
                 }
             }
         }

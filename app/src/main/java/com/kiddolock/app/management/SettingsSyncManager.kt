@@ -49,13 +49,22 @@ class SettingsSyncManager(private val context: Context) {
     )
 
     fun syncSettingsOnStart() {
+        pullSettings { success ->
+            if (success) Log.i("SettingsSync", "Initial settings pull successful")
+        }
+    }
+
+    /**
+     * Pulls the latest settings from the cloud for this device.
+     */
+    fun pullSettings(onComplete: ((Boolean) -> Unit)? = null) {
         GlobalScope.launch(Dispatchers.IO) {
             try {
                 val deviceId = DeviceIdentifier.getPersistentId(context)
-                val apiUrl = "${ApiConfig.BASE_URL}/api/settings?deviceId=$deviceId"
+                val apiUrl = "${ApiConfig.BASE_URL}/api/sync/$deviceId"
                 
                 val timestamp = System.currentTimeMillis()
-                val path = "/api/settings"
+                val path = "/api/sync/$deviceId"
                 val signature = SecurityUtils.getKiddoSignature(timestamp, path)
 
                 val request = Request.Builder()
@@ -68,36 +77,61 @@ class SettingsSyncManager(private val context: Context) {
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
                         response.body?.string()?.let { json ->
-                            val settings = gson.fromJson(json, CloudSettings::class.java)
-                            applySettingsLocally(settings)
+                            val result = gson.fromJson(json, Map::class.java) as Map<String, Any>
+                            val found = result["found"] as? Boolean ?: false
+                            if (found) {
+                                val configJson = gson.toJson(result["config"])
+                                val settings = gson.fromJson(configJson, CloudSettings::class.java)
+                                applySettingsLocally(settings)
+                                
+                                // Also restore pinHash if present and changed
+                                (result["pinHash"] as? String)?.let { cloudHash ->
+                                    val localHash = AdminPinManager.getStoredPinHash(context)
+                                    if (cloudHash != localHash && cloudHash.isNotBlank()) {
+                                        context.getSharedPreferences("admin_pin_prefs", Context.MODE_PRIVATE)
+                                            .edit().putString("pin_hash", cloudHash).putBoolean("pin_set", true).apply()
+                                        Log.i("SettingsSync", "Restored PIN hash from cloud")
+                                    }
+                                }
+                                onComplete?.invoke(true)
+                            } else {
+                                onComplete?.invoke(false)
+                            }
                         }
                     } else {
                         Log.w("SettingsSync", "Failed to pull settings: ${response.code}")
+                        onComplete?.invoke(false)
                     }
                 }
             } catch (e: Exception) {
-                Log.e("SettingsSync", "Error syncing settings", e)
+                Log.e("SettingsSync", "Error pulling settings", e)
+                onComplete?.invoke(false)
             }
         }
     }
 
-    fun pushSettings() {
+    /**
+     * Pushes local settings to the cloud.
+     */
+    fun pushSettings(onComplete: ((Boolean) -> Unit)? = null) {
         GlobalScope.launch(Dispatchers.IO) {
             try {
                 val deviceId = DeviceIdentifier.getPersistentId(context)
                 val settings = gatherLocalSettings()
+                val pinHash = AdminPinManager.getStoredPinHash(context) ?: ""
                 
-                val requestBody = mapOf(
+                val payload = mapOf(
                     "deviceId" to deviceId,
-                    "settings" to settings
+                    "pinHash" to pinHash,
+                    "config" to settings
                 )
                 
-                val json = gson.toJson(requestBody)
+                val json = gson.toJson(payload)
                 val body = json.toRequestBody(mediaType)
                 
-                val apiUrl = "${ApiConfig.BASE_URL}/api/settings"
+                val apiUrl = "${ApiConfig.BASE_URL}/api/sync"
                 val timestamp = System.currentTimeMillis()
-                val signature = SecurityUtils.getKiddoSignature(timestamp, "/api/settings")
+                val signature = SecurityUtils.getKiddoSignature(timestamp, "/api/sync")
 
                 val request = Request.Builder()
                     .url(apiUrl)
@@ -107,12 +141,20 @@ class SettingsSyncManager(private val context: Context) {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
+                    if (response.isSuccessful) {
+                        Log.i("SettingsSync", "Successfully pushed settings to cloud")
+                        // Update last sync time locally
+                        context.getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
+                            .edit().putLong("last_cloud_sync", System.currentTimeMillis()).apply()
+                        onComplete?.invoke(true)
+                    } else {
                         Log.w("SettingsSync", "Failed to push settings: ${response.code}")
+                        onComplete?.invoke(false)
                     }
                 }
             } catch (e: Exception) {
                 Log.e("SettingsSync", "Error pushing settings", e)
+                onComplete?.invoke(false)
             }
         }
     }

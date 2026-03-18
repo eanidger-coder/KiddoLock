@@ -121,6 +121,10 @@ object AdminPinManager {
         return true
     }
 
+    fun getStoredPinHash(context: Context): String? {
+        return prefs(context).getString(KEY_PIN_HASH, null)
+    }
+
     /**
      * Verify the PIN.
      * Returns a [PinResult] describing the outcome.

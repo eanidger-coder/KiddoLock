@@ -1,0 +1,60 @@
+# Android
+build/
+.gradle/
+app/build/
+*.iml
+.idea/
+local.properties
+.DS_Store
+
+# Java/Kotlin
+*.class
+*.kt.metadata
+*.kotlin_metadata
+
+# Node.js
+**/node_modules/
+**/dist/
+**/build/
+.env
+
+# Logs & Temp
+*.log
+*.txt
+*.xml.flat
+*.png.flat
+*.dex
+*.jar
+after_pin.xml
+before_pin.xml
+admin.xml
+admin_real.xml
+admin_toggled.xml
+bedtime.xml
+emergency.xml
+keypad.xml
+main.xml
+view.xml
+view_temp.xml
+*.png
+broad_logs.txt
+decision_logs.txt
+build_diag.txt
+build_error*
+build_log*
+build_out*
+build_output*
+build_full*
+compile_error*
+compile_output*
+crash*
+logcat*
+install_log.txt
+resources_fail*
+test_output.txt
+"C\357\200\272Userseanid.geminiantigravitybrain17d96eb0-ecaa-48dc-971c-b4fcd6b69ab5final_screen.png"
+"C\357\200\272Userseanid.geminiantigravitybrain17d96eb0-ecaa-48dc-971c-b4fcd6b69ab5task.md"
+
+# Agent Workspace
+.agents/
+AGENT_HANDOFF.md

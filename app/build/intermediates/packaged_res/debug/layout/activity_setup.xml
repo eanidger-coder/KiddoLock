@@ -24,22 +24,27 @@
             android:contentDescription="KiddoLock" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="הגדרה ראשונית"
             android:textColor="@color/text_primary"
             android:textSize="24sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:gravity="center"
+            android:hyphenationFrequency="none"
+            android:breakStrategy="simple" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="לחץ על כל שלב לפי הסדר כדי להפעיל"
             android:textColor="@color/cyan_accent"
             android:textSize="14sp"
             android:layout_marginTop="4dp"
             android:layout_marginBottom="20dp"
-            android:gravity="center" />
+            android:gravity="center"
+            android:hyphenationFrequency="none"
+            android:breakStrategy="simple" />
 
         <!-- ══════════════ Step 1: Notifications ══════════════ -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -77,26 +82,30 @@
                 android:textStyle="bold"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="8dp"
-                android:lineSpacingExtra="2dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/tvStep1Num"
                 app:layout_constraintEnd_toStartOf="@id/tvNotifAction"
-                app:layout_constrainedWidth="true" />
+                app:layout_constraintHorizontal_weight="7"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
 
             <!-- Action hint -->
             <TextView
                 android:id="@+id/tvNotifAction"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="לחץ להפעלה ←"
                 android:textColor="@color/cyan_accent"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp"
+                android:gravity="end"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/imgNotificationStatus" />
+                app:layout_constraintStart_toEndOf="@id/tvStep1Title"
+                app:layout_constraintEnd_toStartOf="@id/imgNotificationStatus"
+                app:layout_constraintHorizontal_weight="3" />
 
             <!-- Status icon -->
             <ImageView
@@ -107,8 +116,45 @@
                 android:contentDescription="סטטוס"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toStartOf="@id/btnHelpNotifications" />
+
+            <ImageButton
+                android:id="@+id/btnHelpNotifications"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_help"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:tint="@color/cyan_accent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Help Guide 1 -->
+        <LinearLayout
+            android:id="@+id/layoutHelpNotifications"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="-10dp"
+            android:layout_marginBottom="16dp"
+            android:padding="12dp"
+            android:background="@drawable/glass_card_bg">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="איך לאשר התראות?"
+                android:textColor="@color/cyan_accent"
+                android:textStyle="bold"
+                android:textSize="14sp"/>
+            <ImageView
+                android:id="@+id/imgGuideNotifications"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:scaleType="fitCenter"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
 
         <!-- ══════════════ Step 2: Overlay ══════════════ -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -144,25 +190,29 @@
                 android:textStyle="bold"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="8dp"
-                android:lineSpacingExtra="2dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/tvStep2Num"
                 app:layout_constraintEnd_toStartOf="@id/tvOverlayAction"
-                app:layout_constrainedWidth="true" />
+                app:layout_constraintHorizontal_weight="7"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
 
             <TextView
                 android:id="@+id/tvOverlayAction"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="לחץ להפעלה ←"
                 android:textColor="@color/cyan_accent"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp"
+                android:gravity="end"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/imgOverlayStatus" />
+                app:layout_constraintStart_toEndOf="@id/tvStep2Title"
+                app:layout_constraintEnd_toStartOf="@id/imgOverlayStatus"
+                app:layout_constraintHorizontal_weight="3" />
 
             <ImageView
                 android:id="@+id/imgOverlayStatus"
@@ -172,8 +222,45 @@
                 android:contentDescription="סטטוס"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toStartOf="@id/btnHelpOverlay" />
+
+            <ImageButton
+                android:id="@+id/btnHelpOverlay"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_help"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:tint="@color/cyan_accent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Help Guide 2 -->
+        <LinearLayout
+            android:id="@+id/layoutHelpOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="-10dp"
+            android:layout_marginBottom="16dp"
+            android:padding="12dp"
+            android:background="@drawable/glass_card_bg">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="איך לאשר תצוגה מעל אפליקציות?"
+                android:textColor="@color/cyan_accent"
+                android:textStyle="bold"
+                android:textSize="14sp"/>
+            <ImageView
+                android:id="@+id/imgGuideOverlay"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:scaleType="fitCenter"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
 
         <!-- ══════════════ Step 3: Accessibility ══════════════ -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -209,25 +296,29 @@
                 android:textStyle="bold"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="8dp"
-                android:lineSpacingExtra="2dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/tvStep3Num"
                 app:layout_constraintEnd_toStartOf="@id/tvAccessibilityAction"
-                app:layout_constrainedWidth="true" />
+                app:layout_constraintHorizontal_weight="7"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
 
             <TextView
                 android:id="@+id/tvAccessibilityAction"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="לחץ להפעלה ←"
                 android:textColor="@color/cyan_accent"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp"
+                android:gravity="end"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/imgAccessibilityStatus" />
+                app:layout_constraintStart_toEndOf="@id/tvStep3Title"
+                app:layout_constraintEnd_toStartOf="@id/imgAccessibilityStatus"
+                app:layout_constraintHorizontal_weight="3" />
 
             <ImageView
                 android:id="@+id/imgAccessibilityStatus"
@@ -237,8 +328,45 @@
                 android:contentDescription="סטטוס"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toStartOf="@id/btnHelpAccessibility" />
+
+            <ImageButton
+                android:id="@+id/btnHelpAccessibility"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_help"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:tint="@color/cyan_accent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Help Guide 3 -->
+        <LinearLayout
+            android:id="@+id/layoutHelpAccessibility"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="-10dp"
+            android:layout_marginBottom="16dp"
+            android:padding="12dp"
+            android:background="@drawable/glass_card_bg">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="איך להפעיל חסימת אפליקציות?"
+                android:textColor="@color/cyan_accent"
+                android:textStyle="bold"
+                android:textSize="14sp"/>
+            <ImageView
+                android:id="@+id/imgGuideAccessibility"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:scaleType="fitCenter"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
 
         <!-- ══════════════ Step 4: Device Admin ══════════════ -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -274,25 +402,29 @@
                 android:textStyle="bold"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="8dp"
-                android:lineSpacingExtra="2dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/tvStep4Num"
                 app:layout_constraintEnd_toStartOf="@id/tvAdminAction"
-                app:layout_constrainedWidth="true" />
+                app:layout_constraintHorizontal_weight="7"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
 
             <TextView
                 android:id="@+id/tvAdminAction"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="לחץ להפעלה ←"
                 android:textColor="@color/cyan_accent"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp"
+                android:gravity="end"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/imgDeviceAdminStatus" />
+                app:layout_constraintStart_toEndOf="@id/tvStep4Title"
+                app:layout_constraintEnd_toStartOf="@id/imgDeviceAdminStatus"
+                app:layout_constraintHorizontal_weight="3" />
 
             <ImageView
                 android:id="@+id/imgDeviceAdminStatus"
@@ -302,8 +434,45 @@
                 android:contentDescription="סטטוס"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toStartOf="@id/btnHelpAdmin" />
+
+            <ImageButton
+                android:id="@+id/btnHelpAdmin"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_help"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:tint="@color/cyan_accent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Help Guide 4 -->
+        <LinearLayout
+            android:id="@+id/layoutHelpAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="-10dp"
+            android:layout_marginBottom="16dp"
+            android:padding="12dp"
+            android:background="@drawable/glass_card_bg">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="איך להפעיל הגנת הסרה?"
+                android:textColor="@color/cyan_accent"
+                android:textStyle="bold"
+                android:textSize="14sp"/>
+            <ImageView
+                android:id="@+id/imgGuideAdmin"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:scaleType="fitCenter"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
 
         <!-- ══════════════ Step 5: Usage Access ══════════════ -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -339,25 +508,29 @@
                 android:textStyle="bold"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="8dp"
-                android:lineSpacingExtra="2dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/tvStep5Num"
                 app:layout_constraintEnd_toStartOf="@id/tvUsageAction"
-                app:layout_constrainedWidth="true" />
+                app:layout_constraintHorizontal_weight="7"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
 
             <TextView
                 android:id="@+id/tvUsageAction"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="לחץ להפעלה ←"
                 android:textColor="@color/cyan_accent"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp"
+                android:gravity="end"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/imgUsageStatus" />
+                app:layout_constraintStart_toEndOf="@id/tvStep5Title"
+                app:layout_constraintEnd_toStartOf="@id/imgUsageStatus"
+                app:layout_constraintHorizontal_weight="3" />
 
             <ImageView
                 android:id="@+id/imgUsageStatus"
@@ -367,14 +540,51 @@
                 android:contentDescription="סטטוס"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toStartOf="@id/btnHelpUsage" />
+
+            <ImageButton
+                android:id="@+id/btnHelpUsage"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_help"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:tint="@color/cyan_accent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Help Guide 5 -->
+        <LinearLayout
+            android:id="@+id/layoutHelpUsage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="-10dp"
+            android:layout_marginBottom="16dp"
+            android:padding="12dp"
+            android:background="@drawable/glass_card_bg">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="איך לאשר גישה לנתוני שימוש?"
+                android:textColor="@color/cyan_accent"
+                android:textStyle="bold"
+                android:textSize="14sp"/>
+            <ImageView
+                android:id="@+id/imgGuideUsage"
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                android:scaleType="fitCenter"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
 
         <!-- ══════════════ Step 6: Recovery Email ══════════════ -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="6. אימייל לשחזור"
+            android:text="@string/setup_step_7_title"
             android:textColor="@color/text_primary"
             android:textSize="16sp"
             android:textStyle="bold"

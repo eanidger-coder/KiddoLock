@@ -41,6 +41,8 @@
     <string name="bonus_time">זמן בונוס</string>
     <string name="btn_edit">ערוך</string>
     <string name="cancel">ביטול</string>
+    <string name="change_pin_desc">החלף את קוד הגישה שנועל את האפליקציה</string>
+    <string name="change_pin_label">החלפת קוד הורים</string>
     <string name="choose_new_pin">בחר קוד PIN חדש (לפחות 4 ספרות)</string>
     <string name="choose_profile_title">בחירת פרופיל הגנה</string>
     <string name="confirm_pin">הזן שוב את הקוד לאימות</string>
@@ -57,12 +59,14 @@
     <string name="emergency_uninstall">הסרת חירום (דורש סיסמה)</string>
     <string name="enable_app_blocking">הפעל חסימת אפליקציות</string>
     <string name="enable_kids_mode">הפעל מצב ילדים</string>
+    <string name="enter_current_pin">הזן קוד נוכחי לאימות</string>
     <string name="finish_setup">סיום הגדרה</string>
     <string name="first_setup_toast">הגדרה ראשונה — אנא בחר קוד PIN</string>
     <string name="grant_15_min">הוסף 15 דקות</string>
     <string name="grant_1_hour">הוסף שעה</string>
     <string name="grant_2_hours">הוסף שעתיים</string>
     <string name="grant_30_min">הוסף 30 דקות</string>
+    <string name="guide_btn_understood">הבנתי, להמשך ←</string>
     <string name="hello">שלום 👋</string>
     <string name="items_added_to_whitelist">%1$d פריטים נוספו לרשימה הלבנה ✅</string>
     <string name="kids_mode_disabled">מצב ילדים כבוי</string>
@@ -81,8 +85,6 @@
     <string name="lock_btn">🔒 נעילה</string>
     <string name="lock_confirmed_toast">המכשיר ינעל כעת</string>
     <string name="lock_device_now">נעל מכשיר עכשיו</string>
-    <string name="lock_home_layout">הגנת פריסת מסך הבית</string>
-    <string name="lock_home_layout_info">במצב ילדים, פריסת מסך הבית ננעלת אוטומטית כדי למנוע מחיקת אפליקציות ושינויים.</string>
     <string name="locked_for_seconds">נעול ל- %1$d שניות נוספות</string>
     <string name="locked_status">נעול</string>
     <string name="management">🎛️ ניהול</string>
@@ -147,11 +149,13 @@
     <string name="schedule_sub">שעות שקטות ומגבלה יומית</string>
     <string name="schedule_title">לוח זמנים</string>
     <string name="search_apps_hint">חפש אפליקציה...</string>
+    <string name="security_parent_pin_title">אבטחה וקוד הורים</string>
     <string name="security_settings">אבטחה והגנה</string>
     <string name="select_daily_limit">בחר הגבלת זמן יומית</string>
     <string name="set_admin_pin">הגדרת קוד מנהל</string>
     <string name="set_bedtime">שעת שינה</string>
     <string name="set_limit_title">הגדר מגבלה (דקות ליום)</string>
+    <string name="set_new_pin">הגדר קוד חדש</string>
     <string name="settings_description">הגדרות</string>
     <string name="settings_saved_success">ההגדרות נשמרו בהצלחה! ✅</string>
     <string name="setup_accessibility_toast">מצא את \'KiddoLock\' והפעל אותו כדי לאפשר חסימת אפליקציות</string>

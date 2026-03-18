@@ -15,6 +15,8 @@ import android.util.Log
 import android.view.View
 import android.widget.*
 import android.provider.Settings
+import java.text.DateFormat
+import java.util.Date
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.lifecycle.lifecycleScope
@@ -66,7 +68,8 @@ class AdminActivity : AppCompatActivity() {
     private lateinit var tvDailyLimitValue: TextView
 
     // Security & Recovery views
-    // Removed to streamline Admin UI per user request
+    private lateinit var cardChangePin: com.google.android.material.card.MaterialCardView
+    private lateinit var cardCloudSync: com.google.android.material.card.MaterialCardView
 
     private lateinit var dpm: DevicePolicyManager
     private lateinit var adminComponent: ComponentName
@@ -143,6 +146,9 @@ class AdminActivity : AppCompatActivity() {
         rvApps.layoutManager = LinearLayoutManager(this)
         rvApps.adapter = appListAdapter
 
+        cardChangePin = findViewById(R.id.cardChangePin)
+        cardCloudSync = findViewById(R.id.cardCloudSync)
+
         // Setup switches
         // Setup Admin app state
         
@@ -152,7 +158,7 @@ class AdminActivity : AppCompatActivity() {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
             tvVersion.text = "גרסה ${pInfo.versionName}"
         } catch (e: Exception) {
-            tvVersion.text = "גרסה 1.3.4"
+            tvVersion.text = "גרסה 1.5.5"
         }
 
 
@@ -169,7 +175,24 @@ class AdminActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnEmergencyUninstall).setOnClickListener {
             showUninstallDialog()
         }
+
+        // Initialize Sync View
+        updateSyncStatus()
     }
+
+    private fun updateSyncStatus() {
+        val lastSync = getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
+            .getLong("last_cloud_sync", 0L)
+        
+        val tvSyncLastTime = findViewById<TextView>(R.id.tvSyncLastTime)
+        if (lastSync == 0L) {
+            tvSyncLastTime.text = "סנכרון אחרון: מעולם לא"
+        } else {
+            val date = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(lastSync))
+            tvSyncLastTime.text = "סנכרון אחרון: $date"
+        }
+    }
+
 
     private fun setupListeners() {
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
@@ -207,6 +230,13 @@ class AdminActivity : AppCompatActivity() {
         // Removed recovery email listeners to streamline UI
 
         // Help & About listener
+        cardChangePin.setOnClickListener {
+            val intent = Intent(this, AdminPinActivity::class.java).apply {
+                putExtra("CHANGE_PIN_MODE", true)
+            }
+            startActivity(intent)
+        }
+
         findViewById<View>(R.id.cardHelp).setOnClickListener {
             startActivity(Intent(this, HelpActivity::class.java))
         }

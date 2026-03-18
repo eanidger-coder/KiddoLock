@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.kiddolock.app.DummyTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-03-16T13:55:06" hostname="DESKTOP-87485LF" time="0.005">
-  <properties/>
-  <testcase name="testTrue" classname="com.kiddolock.app.DummyTest" time="0.005"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

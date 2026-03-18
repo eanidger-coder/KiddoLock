@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.kiddolock.app.SecurityTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-03-16T13:55:06" hostname="DESKTOP-87485LF" time="0.08">
-  <properties/>
-  <testcase name="testExitCodeGeneration" classname="com.kiddolock.app.SecurityTest" time="0.061"/>
-  <testcase name="testBrandingConsistency" classname="com.kiddolock.app.SecurityTest" time="0.019"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

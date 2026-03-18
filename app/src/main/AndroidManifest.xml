@@ -66,6 +66,7 @@
             android:name=".services.KiddoLockAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:foregroundServiceType="dataSync"
+            android:isAccessibilityTool="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

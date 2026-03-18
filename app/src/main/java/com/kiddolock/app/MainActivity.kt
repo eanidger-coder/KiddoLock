@@ -45,6 +45,9 @@ class MainActivity : AppCompatActivity() {
         initViews()
         setupListeners()
         
+        // Sync settings from cloud on start
+        com.kiddolock.app.management.SettingsSyncManager(this).syncSettingsOnStart()
+        
         AppUsageManager.trackAppOpen(this)
 
         // Request notification permission silently (no Toast, no redirect)

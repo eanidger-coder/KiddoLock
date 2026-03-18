@@ -35,13 +35,15 @@
 
             <TextView
                 android:id="@+id/tvPinSubtitle"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="אנא הזן את קוד הגישה (PIN) כדי להמשיך"
                 android:textColor="#CCCCCC"
                 android:textSize="13sp"
                 android:layout_marginBottom="24dp"
-                android:gravity="center"/>
+                android:gravity="center"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
 
             <!-- PIN Indicators -->
             <LinearLayout

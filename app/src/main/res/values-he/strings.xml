@@ -202,5 +202,12 @@
     <string name="pin_entry_exit_hint">החלק למעלה כדי לחזור למסך הבית</string>
     <string name="wrong_pin_shake_hint">קוד שגוי, נסה שוב</string>
 
+    <!-- Change PIN -->
+    <string name="security_parent_pin_title">אבטחה וקוד הורים</string>
+    <string name="change_pin_label">החלפת קוד הורים</string>
+    <string name="change_pin_desc">החלף את קוד הגישה שנועל את האפליקציה</string>
+    <string name="enter_current_pin">הזן קוד נוכחי לאימות</string>
+    <string name="set_new_pin">הגדר קוד חדש</string>
+
 </resources>
 

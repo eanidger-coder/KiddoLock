@@ -16,6 +16,9 @@ class KidsModeManager(private val context: Context) {
         set(value) {
             prefs.edit().putBoolean("kids_mode_enabled", value).apply()
             Log.i("KidsModeManager", "Kids Mode ${if (value) "ENABLED" else "DISABLED"}")
+            
+            // Push settings to cloud whenever status changes
+            SettingsSyncManager(context).pushSettings()
         }
 
 

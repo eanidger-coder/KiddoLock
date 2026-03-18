@@ -1,0 +1,11 @@
+name = "kiddolock-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kiddolock-db"
+database_id = "8abeb087-0854-4ee7-8beb-4d624a687dec"
+
+[vars]
+HMAC_SECRET = "KIDDO_LOCK_SECURE_SALT_2026_V1"

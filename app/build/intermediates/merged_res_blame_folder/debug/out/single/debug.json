@@ -16,6 +16,10 @@
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_status_pending.xml"
     },
     {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\color_selector_switch_track.xml.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\color\\selector_switch_track.xml"
+    },
+    {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_ic_expand_more.xml.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_expand_more.xml"
     },
@@ -36,12 +40,12 @@
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\mipmap-xhdpi\\ic_launcher.png"
     },
     {
-        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_ic_premium_badge.png.flat",
-        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_premium_badge.png"
-    },
-    {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_glass_card_bg.xml.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\glass_card_bg.xml"
+    },
+    {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_ic_premium_badge.png.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_premium_badge.png"
     },
     {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_ic_kiddo_apps.png.flat",
@@ -136,6 +140,10 @@
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\bg_duration_btn.xml"
     },
     {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_guide_notifications.png.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\guide_notifications.png"
+    },
+    {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\mipmap-xxhdpi_ic_launcher_foreground.png.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\mipmap-xxhdpi\\ic_launcher_foreground.png"
     },
@@ -208,16 +216,24 @@
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\bg_dark_gradient.xml"
     },
     {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\color_selector_switch_thumb.xml.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\color\\selector_switch_thumb.xml"
+    },
+    {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_ic_kiddo_profiles.png.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_kiddo_profiles.png"
+    },
+    {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_bg_search_field.xml.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\bg_search_field.xml"
     },
     {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_btn_red_gradient.xml.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\btn_red_gradient.xml"
     },
     {
-        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_bg_search_field.xml.flat",
-        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\bg_search_field.xml"
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_ic_sync.xml.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_sync.xml"
     },
     {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\layout_activity_setup.xml.flat",
@@ -260,12 +276,12 @@
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\guide_overlay.png"
     },
     {
-        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\mipmap-mdpi_ic_launcher_round.png.flat",
-        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\mipmap-mdpi\\ic_launcher_round.png"
-    },
-    {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\layout_item_app_admin.xml.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\layout\\item_app_admin.xml"
+    },
+    {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\mipmap-mdpi_ic_launcher_round.png.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\mipmap-mdpi\\ic_launcher_round.png"
     },
     {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\layout_overlay_block.xml.flat",
@@ -316,12 +332,12 @@
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_launcher_foreground.xml"
     },
     {
-        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\xml_device_admin.xml.flat",
-        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\xml\\device_admin.xml"
-    },
-    {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_guide_admin.png.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\guide_admin.png"
+    },
+    {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\xml_device_admin.xml.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\xml\\device_admin.xml"
     },
     {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\mipmap-xhdpi_ic_launcher_round.png.flat",
@@ -330,6 +346,10 @@
     {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_ic_help.xml.flat",
         "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\ic_help.xml"
+    },
+    {
+        "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\drawable_guide_usage_access.png.flat",
+        "source": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-main-6:\\drawable\\guide_usage_access.png"
     },
     {
         "merged": "C:\\Users\\eanid\\.gradle\\daemon\\8.11.1\\com.kiddolock.app-merged_res-4:\\mipmap-anydpi-v26_ic_launcher_round.xml.flat",

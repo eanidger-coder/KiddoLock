@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.kiddolock.app"
-    android:versionCode="4"
-    android:versionName="1.4.3 (Build 4)" >
+    android:versionCode="15"
+    android:versionName="1.5.5 (Build 15)" >
 
     <uses-sdk
         android:minSdkVersion="26"
@@ -80,6 +80,7 @@
             android:name="com.kiddolock.app.services.KiddoLockAccessibilityService"
             android:exported="true"
             android:foregroundServiceType="dataSync"
+            android:isAccessibilityTool="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

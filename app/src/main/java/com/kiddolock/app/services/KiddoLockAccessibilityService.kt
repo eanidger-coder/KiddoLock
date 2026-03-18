@@ -223,8 +223,10 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             // 0.3 Zero-Latency Safeguard (Critical Apps)
             val isCritical = AppBlockManager.isCriticalApp(packageName)
             // EMERGENCY RULE: If Global Suppression is active, the parent is in control.
+            // PER-APP RULE: If the app is temporarily unlocked by PIN, allow it.
             // Do not block critical apps during this window (allows for fixes or uninstallation).
-            if (kidsMode.isEnabled && isCritical && !packageName.contains("kiddolock") && !AppBlockManager.isGlobalSuppressed) {
+            if (kidsMode.isEnabled && isCritical && !packageName.contains("kiddolock") && 
+                !AppBlockManager.isGlobalSuppressed && !AppBlockManager.isTemporarilyUnlocked(packageName)) {
                 Log.w(TAG, "SAFEGUARD: Blocking critical app $packageName")
                 lastNavigationTime = System.currentTimeMillis() // Start guard
                 performGlobalAction(GLOBAL_ACTION_HOME)
