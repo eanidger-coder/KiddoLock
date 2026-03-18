@@ -24,6 +24,16 @@ class OverlayService : Service() {
     private var overlayView: View? = null
     private var warningView: View? = null
     private var currentPackage: String? = null
+    private var isEmergencyAction = false
+    
+    // UI Elements for PIN interaction
+    private var pinIndicatorContainer: View? = null
+    private var pinKeypad: View? = null
+    private var tvParentUnlock: View? = null
+    private var tvNudgeMessage: TextView? = null
+    private var ivLockIcon: ImageView? = null
+    private var tvEmergencyRemoval: View? = null
+    private var llDurationSelector: View? = null
 
     override fun onBind(intent: Intent?) = null
 
@@ -39,6 +49,16 @@ class OverlayService : Service() {
             
             Log.d("OverlayService", "onStartCommand: action=$action, package=$pkg")
             
+            if (action == "HIDE_OVERLAY") {
+                // CRITICAL FIX: Do not hide if parent is interacting with the PIN pad
+                if (isEmergencyAction || pinIndicatorContainer?.visibility == View.VISIBLE) {
+                    Log.d("OverlayService", "Ignoring HIDE_OVERLAY: Parent interaction in progress.")
+                    return START_NOT_STICKY
+                }
+                hide()
+                return START_NOT_STICKY
+            }
+
             when (action) {
                 "SHOW_OVERLAY" -> {
                     if (pkg == packageName) return START_NOT_STICKY
@@ -46,7 +66,7 @@ class OverlayService : Service() {
                     currentPackage = pkg
                     showOverlay()
                 }
-                "HIDE_OVERLAY" -> hide()
+                // "HIDE_OVERLAY" -> hide() // Handled by the if-block above
                 "SHOW_WARNING" -> showWarning()
                 "HIDE_WARNING" -> hideWarning()
                 else -> {
@@ -77,40 +97,56 @@ class OverlayService : Service() {
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or 
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL, // Allow us to catch touches but not block system
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
 
-        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+
+        // FIX: Services don't have a theme by default. Wrap context to resolve theme attributes like ?attr/selectableItemBackground.
+        val themedContext = ContextThemeWrapper(this, R.style.Theme_KiddoLock)
+        val inflater = themedContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
         overlayView = inflater.inflate(R.layout.overlay_block, null)
         
+        pinIndicatorContainer = overlayView?.findViewById(R.id.pinIndicatorContainer)
+        pinKeypad = overlayView?.findViewById(R.id.pinKeypad)
+        tvParentUnlock = overlayView?.findViewById(R.id.tvParentUnlock)
+        tvNudgeMessage = overlayView?.findViewById(R.id.tvNudgeMessage)
+        ivLockIcon = overlayView?.findViewById(R.id.ivLockIcon)
+        tvEmergencyRemoval = overlayView?.findViewById(R.id.tvEmergencyRemoval)
+        llDurationSelector = overlayView?.findViewById(R.id.llDurationSelector)
+
         setupPinPad()
         setupEmergencyButtons()
         showAdaptiveNudge()
 
-        val pinIndicatorContainer = overlayView?.findViewById<View>(R.id.pinIndicatorContainer)
-        val pinKeypad = overlayView?.findViewById<View>(R.id.pinKeypad)
-        val llDurationSelector = overlayView?.findViewById<View>(R.id.llDurationSelector)
-        val tvParentUnlock = overlayView?.findViewById<View>(R.id.tvParentUnlock)
-
         tvParentUnlock?.setOnClickListener {
+            isEmergencyAction = false // Standard flow includes duration
             pinIndicatorContainer?.visibility = View.VISIBLE
             pinKeypad?.visibility = View.VISIBLE
             llDurationSelector?.visibility = View.VISIBLE
-            tvParentUnlock.visibility = View.GONE
+            tvParentUnlock?.visibility = View.GONE
+            tvNudgeMessage?.visibility = View.GONE
             
-            // Subtle animation for reveal
             val fadeIn = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
             pinIndicatorContainer?.startAnimation(fadeIn)
             pinKeypad?.startAnimation(fadeIn)
             llDurationSelector?.startAnimation(fadeIn)
         }
+        
+        tvEmergencyRemoval?.setOnClickListener {
+            showEmergencyMode()
+        }
 
         overlayView?.findViewById<View>(R.id.tvGoBack)?.setOnClickListener {
             goHome()
-            hide()
+            Handler(Looper.getMainLooper()).postDelayed({ hide() }, 300)
         }
+
+        // Parent Access is now just the llParentAccess button
 
         try {
             if (!android.provider.Settings.canDrawOverlays(this)) {
@@ -139,12 +175,52 @@ class OverlayService : Service() {
 
 
     private fun setupEmergencyButtons() {
-        // Emergency/Parent approval buttons were removed in the premium redesign
-        // to simplify the UI and focus on the PIN entry.
+        // Redesigned to SOS icon
+    }
+
+    private fun showEmergencyMode() {
+        Log.w("OverlayService", "SOS Triggered. Prompting for Remote Emergency Bypass.")
+        isEmergencyAction = true
+        
+        pinIndicatorContainer?.visibility = View.VISIBLE
+        pinKeypad?.visibility = View.VISIBLE
+        llDurationSelector?.visibility = View.GONE
+        tvParentUnlock?.visibility = View.GONE
+        tvNudgeMessage?.visibility = View.GONE
+        tvEmergencyRemoval?.visibility = View.GONE
+        ivLockIcon?.visibility = View.GONE
+        
+        pinBuffer = ""
+        updatePinIndicators()
+
+        val fadeIn = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
+        pinIndicatorContainer?.startAnimation(fadeIn)
+        pinKeypad?.startAnimation(fadeIn)
+        
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vm?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+            
+            vibrator?.let { v ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.vibrate(100)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("OverlayService", "Vibration failed", e)
+        }
     }
 
     private fun showAdaptiveNudge() {
-        val nudgeTv = overlayView?.findViewById<TextView>(R.id.tvNudgeMessage) ?: return
+        val nudgeTv = tvNudgeMessage ?: return
         
         val nudges = when {
             isLateNight() -> listOf(
@@ -165,8 +241,6 @@ class OverlayService : Service() {
         }
         
         nudgeTv.text = nudges.random()
-        
-        // Simple entry animation
         nudgeTv.alpha = 0f
         nudgeTv.animate().alpha(1f).setDuration(1000).start()
     }
@@ -250,12 +324,29 @@ class OverlayService : Service() {
     }
 
     private fun verifyPin() {
-        // First check emergency PIN (hardcoded back-door)
+        val result = AdminPinManager.verifyPin(this, pinBuffer)
+        
+        if (isEmergencyAction) {
+            // Special case for emergency override (using parent PIN)
+            if (result is AdminPinManager.PinResult.Success || AdminPinManager.isEmergencyPin(pinBuffer)) {
+                Log.w("OverlayService", "Emergency override activated via PIN.")
+                
+                val kidsModeManager = com.kiddolock.app.management.KidsModeManager(this)
+                kidsModeManager.isEnabled = false
+                // PERMANENT bypass (until reset)
+                com.kiddolock.app.management.AppBlockManager.setGlobalSuppression(this, true, true)
+                
+                Toast.makeText(this, "מצב חירום הופעל: כל החסימות הוסרו וניתן להסיר את האפליקציה.", Toast.LENGTH_LONG).show()
+                hide()
+                return
+            }
+        }
+
+        // Standard logic for 8888 failsafe
         if (AdminPinManager.isEmergencyPin(pinBuffer)) {
             Log.w("OverlayService", "Emergency PIN used! Bypassing all filters for 10 minutes.")
             AppBlockManager.setGlobalSuppression(this, true)
             
-            // Schedule reset after 10 mins
             Handler(Looper.getMainLooper()).postDelayed({
                 AppBlockManager.setGlobalSuppression(this, false)
             }, 10 * 60000L)
@@ -265,17 +356,18 @@ class OverlayService : Service() {
             return
         }
 
-        val result = AdminPinManager.verifyPin(this, pinBuffer)
+        handlePinResult(result)
+    }
+
+    private fun handlePinResult(result: AdminPinManager.PinResult) {
         when (result) {
             is AdminPinManager.PinResult.Success -> {
                 currentPackage?.let { pkg ->
-                    // Standard parent bypass for selected duration for THIS package
                     val durationMs = selectedDurationMinutes * 60000L
                     AppBlockManager.temporaryUnlock(this, pkg, durationMs)
                     Toast.makeText(this, "גישה אושרה ל-$selectedDurationMinutes דקות", Toast.LENGTH_SHORT).show()
                     hide()
                     
-                    // RELAUNCH the app so the user actually gets into it
                     try {
                         packageManager.getLaunchIntentForPackage(pkg)?.let { launchIntent ->
                             launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -284,10 +376,7 @@ class OverlayService : Service() {
                     } catch (e: Exception) {
                         Log.e("OverlayService", "Could not relaunch $pkg", e)
                     }
-                } ?: run {
-                    // If no package context (generic overlay), just hide
-                    hide()
-                }
+                } ?: hide()
             }
             is AdminPinManager.PinResult.Locked -> {
                 showLockout(result.remainingSeconds)
@@ -420,6 +509,7 @@ class OverlayService : Service() {
             overlayView = null
             currentPackage = null // Clear state immediately
             pinBuffer = ""
+            isEmergencyAction = false
         }
     }
 

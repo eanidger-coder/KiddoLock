@@ -13,9 +13,9 @@ import androidx.core.app.NotificationCompat
 
 object NotificationUtils {
     const val CHANNEL_ID = "kiddolock_service_channel"
-    private const val CHANNEL_NAME = "KiddoLock Protection"
+    private const val CHANNEL_NAME = "הגנת KiddoLock"
     private const val SETUP_CHANNEL_ID = "kiddolock_setup_channel"
-    private const val SETUP_CHANNEL_NAME = "KiddoLock Setup"
+    private const val SETUP_CHANNEL_NAME = "הגדרת KiddoLock"
     const val KIDDO_NOTIFICATION_ID = 2026
     private const val SETUP_NOTIFICATION_ID = 2027
     const val ACTION_BLOCK_LAST = "com.kiddolock.app.BLOCK_LAST_SITE"

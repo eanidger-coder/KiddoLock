@@ -101,36 +101,67 @@ class SetupActivity : AppCompatActivity() {
     private fun setupListeners() {
         cardNotifications.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+                showPermissionGuide(
+                    getString(R.string.guide_title_notifications),
+                    getString(R.string.guide_desc_notifications),
+                    R.drawable.guide_notifications // Placeholder/Generated
+                ) {
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+                }
             }
         }
 
         cardOverlay.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                    data = Uri.parse("package:$packageName")
+                showPermissionGuide(
+                    getString(R.string.guide_title_overlay),
+                    getString(R.string.guide_desc_overlay),
+                    R.drawable.guide_overlay
+                ) {
+                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                }
+            }
+        }
+
+        cardAccessibility.setOnClickListener {
+            showPermissionGuide(
+                getString(R.string.guide_title_accessibility),
+                getString(R.string.guide_desc_accessibility),
+                R.drawable.guide_accessibility
+            ) {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        cardDeviceAdmin.setOnClickListener {
+            showPermissionGuide(
+                getString(R.string.guide_title_admin),
+                getString(R.string.guide_desc_admin),
+                R.drawable.guide_admin
+            ) {
+                val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, ComponentName(this@SetupActivity, KiddoDeviceAdminReceiver::class.java))
+                    putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, getString(R.string.setup_admin_explanation))
                 }
                 startActivity(intent)
             }
         }
 
-        cardAccessibility.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
-        }
-
-        cardDeviceAdmin.setOnClickListener {
-            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-                putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, ComponentName(this@SetupActivity, KiddoDeviceAdminReceiver::class.java))
-                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, getString(R.string.setup_admin_explanation))
-            }
-            startActivity(intent)
-        }
-
         cardUsageAccess.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-            Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל גישה", Toast.LENGTH_LONG).show()
+            showPermissionGuide(
+                getString(R.string.guide_title_usage),
+                getString(R.string.guide_desc_usage),
+                R.drawable.guide_usage_access // Placeholder/Generated
+            ) {
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל גישה", Toast.LENGTH_LONG).show()
+            }
         }
+
 
         btnContinue.setOnClickListener {
             val email = etRecoveryEmail.text.toString().trim()
@@ -180,10 +211,13 @@ class SetupActivity : AppCompatActivity() {
         val hasUsage = isUsageAccessEnabled()
         setStepStatus(imgUsageStatus, cardUsageAccess, hasUsage, tvUsageAction)
 
+
         // Enable button only when all critical steps done
         btnContinue.isEnabled = hasOverlay && hasAccessibility && hasAdmin && hasUsage
         btnContinue.alpha = if (btnContinue.isEnabled) 1.0f else 0.5f
     }
+
+
 
     private fun setStepStatus(icon: ImageView, card: View, active: Boolean, actionHint: TextView? = null) {
         if (active) {
@@ -228,17 +262,29 @@ class SetupActivity : AppCompatActivity() {
 
     private fun showPermissionGuide(guideTitle: String, guideDesc: String, imageRes: Int, onConfirm: () -> Unit) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_permission_guide, null)
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
             .setView(dialogView)
             .create()
 
         dialogView.findViewById<TextView>(R.id.tvGuideTitle).text = guideTitle
-        dialogView.findViewById<TextView>(R.id.tvGuideDescription).text = guideDesc
-        dialogView.findViewById<ImageView>(R.id.imgGuide).setImageResource(imageRes)
-        dialogView.findViewById<Button>(R.id.btnGoToSettings).setOnClickListener {
+        val tvDesc = dialogView.findViewById<TextView>(R.id.tvGuideDescription)
+        tvDesc.text = guideDesc
+        
+        val imgGuide = dialogView.findViewById<ImageView>(R.id.imgGuide)
+        imgGuide.setImageResource(imageRes)
+        
+        val cardGuideImage = dialogView.findViewById<View>(R.id.cardGuideImage)
+
+        val confirmAction = {
             dialog.dismiss()
             onConfirm()
         }
+
+        // Multi-link interactivity: Clicking button, text, or image triggers settings
+        dialogView.findViewById<Button>(R.id.btnGoToSettings).setOnClickListener { confirmAction() }
+        tvDesc.setOnClickListener { confirmAction() }
+        imgGuide.setOnClickListener { confirmAction() }
+        cardGuideImage.setOnClickListener { confirmAction() }
 
         dialog.show()
     }

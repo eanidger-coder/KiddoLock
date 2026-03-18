@@ -15,6 +15,21 @@
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="checkboxStyle">@style/CustomCheckbox</item>
+        <item name="alertDialogTheme">@style/CustomAlertDialog</item>
+        <item name="materialAlertDialogTheme">@style/CustomAlertDialog</item>
+    </style>
+
+    <style name="CustomAlertDialog" parent="Theme.MaterialComponents.Dialog.Alert">
+        <item name="android:windowBackground">@color/bg_surface</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="colorSurface">@color/bg_surface</item>
+        <item name="android:colorBackground">@color/bg_surface</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.MaterialComponents.Button.TextButton</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowMinWidthMajor">85%</item>
+        <item name="android:windowMinWidthMinor">85%</item>
     </style>
 
     <style name="CustomCheckbox" parent="Widget.MaterialComponents.CompoundButton.CheckBox">

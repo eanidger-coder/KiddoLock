@@ -4,6 +4,7 @@ import com.kiddolock.app.R
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.app.AppOpsManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
@@ -114,7 +115,7 @@ class MainActivity : AppCompatActivity() {
         tvKidsModeStatusMain = findViewById(R.id.tvKidsModeStatusMain)
         kidsModeManager = KidsModeManager(this)
 
-        tvVersion.text = "KiddoLock v${packageManager.getPackageInfo(packageName, 0).versionName}"
+        tvVersion.text = "KiddoLock גרסה ${packageManager.getPackageInfo(packageName, 0).versionName}"
     }
 
     private fun setupListeners() {
@@ -126,22 +127,22 @@ class MainActivity : AppCompatActivity() {
             checkPinAndNavigate(AdminPinActivity::class.java)
         }
 
-        swKidsModeMain.setOnCheckedChangeListener { _, isChecked ->
+        swKidsModeMain.setOnCheckedChangeListener { buttonView, isChecked ->
+            if (!buttonView.isPressed) return@setOnCheckedChangeListener // Only trigger on user interaction
+            
             kidsModeManager.isEnabled = isChecked
-            // Invalidate cache to reflect changes immediately
-            AppBlockManager.invalidateCache()
+            // Invalidate cache and clear all temporary bypasses to ensure immediate protection
+            if (isChecked) {
+                AppBlockManager.clearAllBypasses(this)
+            } else {
+                AppBlockManager.invalidateCache()
+            }
             updateStatus()
             
             if (isChecked) {
-                // Inform parent about automated protections
-                androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle(R.string.lock_home_layout)
-                    .setMessage(R.string.lock_home_layout_info)
-                    .setPositiveButton("הבנתי", null)
-                    .show()
+                Toast.makeText(this, "מצב ילדים הופעל - ההגנות נכנסו לתוקף", Toast.LENGTH_SHORT).show()
             } else {
-                val status = "כבוי"
-                Toast.makeText(this, "מצב ילדים $status", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "מצב ילדים כבוי - המכשיר חופשי", Toast.LENGTH_SHORT).show()
             }
         }
     }

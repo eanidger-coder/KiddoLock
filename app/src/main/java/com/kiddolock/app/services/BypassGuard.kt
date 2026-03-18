@@ -36,7 +36,7 @@ class BypassGuard(private val context: Context) {
         "com.android.settings.Settings\$HighPowerApplicationsActivity",
         "com.android.settings.Settings\$AccessibilitySettingsActivity",
         "com.android.settings.Settings\$AccessibilityInstalledServiceActivity",
-        "com.android.settings.SubSettings", // Generic sub-settings container used by Samsung/Pixel
+        "com.android.settings.SubSettings", 
         "com.samsung.android.settings.accessibility.AccessibilitySettings",
         "com.sec.android.app.capability.CapabilityActivity",
         "com.miui.securitycenter.permission.AppPermissionsEditor",
@@ -45,12 +45,20 @@ class BypassGuard(private val context: Context) {
         "com.samsung.android.settings.security.DeviceAdminSettings",
         "com.miui.securitycenter.activity.SettingsActivity",
         "com.oppo.settings.Settings\$AccessibilitySettingsActivity",
-        "com.android.settings.DeviceAdminAdd" // Explicitly adding again for clarity, some devices use it directly
+        "com.android.settings.DeviceAdminAdd",
+        "com.android.settings.Settings\$ManageAppExternalSourcesActivity",
+        "com.android.settings.Settings\$ManageAppOverlayActivity",
+        "com.android.settings.Settings\$UsageAccessSettingsActivity",
+        "com.samsung.android.settings.display.EdgePanelSettingsActivity",
+        "com.android.launcher3.SettingsActivity",
+        "com.android.launcher3.SettingActivity",
+        "com.google.android.apps.nexuslauncher.SettingsActivity",
+        "com.miui.home.launcher.SettingsActivity"
     )
 
     // Package names for Settings and app management
     private val SETTINGS_PACKAGE = "com.android.settings"
-    
+
     /**
      * Initialize guard.
      * Called on startup.
@@ -123,11 +131,12 @@ class BypassGuard(private val context: Context) {
             }
 
             // If we don't know the class, and it's a settings package, 
-            // and uninstall protection is enabled, we block the whole package
+            // and Kids Mode is active OR uninstall protection is enabled, we block the whole package.
             // This handles cases where accessibility event doesn't provide className but we are in Settings.
             if (className == null) {
-                if (prefs.uninstall_protection_enabled) {
-                    Log.w(TAG, "BLOCKED: Whole settings package blocked (className null): $packageName")
+                if (kidsModeManager.isEnabled || prefs.uninstall_protection_enabled) {
+                    val kmsEnabled = kidsModeManager.isEnabled
+                    Log.w(TAG, "BLOCKED: Whole settings package blocked (className null, Kids Mode=$kmsEnabled): $packageName")
                     return BypassAction.BLOCK_SETTINGS
                 }
                 return BypassAction.ALLOW
@@ -153,8 +162,16 @@ class BypassGuard(private val context: Context) {
             val isUninstallProtectionEnabled = prefs.uninstall_protection_enabled
 
             // ACTIVE BLOCKING: If Kids Mode is on, we are much more aggressive
-            if (kidsModeManager.isEnabled && isSensitiveClass) {
-                Log.e(TAG, "PANIC MODE: Blocking sensitive setting in Kids Mode: $className")
+            // EXCEPTION: Allow Launcher Settings and Setup Wizard access
+            val isLauncherSettings = lowerClass.contains("launcher") && lowerClass.contains("settings")
+            
+            // IF KIDS MODE IS OFF: Allow ALL settings access (unless setup in progress, which shouldn't happen here)
+            if (!kidsModeManager.isEnabled) {
+                return BypassAction.ALLOW
+            }
+
+            if ((isSensitiveClass || packageName.contains("settings")) && !isLauncherSettings && !prefs.setup_in_progress) {
+                Log.e(TAG, "PANIC MODE: Blocking ALL settings access in Kids Mode: $packageName")
                 return BypassAction.BLOCK_SETTINGS
             }
 
@@ -181,44 +198,9 @@ class BypassGuard(private val context: Context) {
             return BypassAction.BLOCK_UNINSTALL
         }
 
-        // 4. Kids Mode Specific: Home Screen Layout Lock (AUTOMATIC)
-        if (kidsModeManager.isEnabled) {
-            val lowerPackage = packageName.lowercase()
-            val lowerClass = className?.lowercase() ?: ""
-            
-            // Detect launcher settings activities
-            val isLauncher = lowerPackage.contains("launcher") || 
-                             lowerPackage.contains("home") || 
-                             lowerPackage.contains("trebuchet") || // LineageOS
-                             lowerPackage.contains("pixel.setupwizard") ||
-                             packageName == "com.sec.android.app.launcher" // Samsung Home
-            
-            val isSettingsKeyword = lowerClass.contains("settings") || 
-                                    lowerClass.contains("config") || 
-                                    lowerClass.contains("preference") ||
-                                    lowerClass.contains("setup") ||
-                                    lowerClass.contains("edit") ||
-                                    lowerClass.contains("customize") ||
-                                    lowerClass.contains("wallpaper") ||
-                                    lowerClass.contains("theme")
-            
-            if (isLauncher && isSettingsKeyword) {
-                Log.w(TAG, "BLOCKED: Home layout protection active in Kids Mode: $className")
-                return BypassAction.BLOCK_SETTINGS
-            }
-
-            // Block common wallpaper pickers and widget pickers
-            val wallpaperPackages = setOf(
-                "com.android.wallpaper",
-                "com.google.android.apps.wallpaper",
-                "com.sec.android.app.wallpaper",
-                "com.miui.miwallpaper"
-            )
-            if (wallpaperPackages.any { packageName.contains(it) }) {
-                Log.w(TAG, "BLOCKED: Wallpaper modification blocked in Kids Mode")
-                return BypassAction.BLOCK_SETTINGS
-            }
-        }
+        // 4. Kids Mode Specific: Home Screen Layout Lock (REAL LOCK relied upon)
+        // We no longer use "Virtual Lock" overlays for the launcher as they were too aggressive.
+        // The real lock is now managed via KidsModeManager.setHomeLayoutLocked()
 
         return BypassAction.ALLOW
     }
@@ -266,6 +248,11 @@ class BypassGuard(private val context: Context) {
                                     lowerClass.contains("packageinstaller")
         
         if (isUninstaller || uninstallerKeywordMatch) {
+            // CRITICAL: If Kids Mode is OFF, allow uninstallation
+            if (!com.kiddolock.app.management.KidsModeManager(context).isEnabled) {
+                return false
+            }
+
             val prefs = Prefs(context)
             val uninstallProtection = prefs.uninstall_protection_enabled
             

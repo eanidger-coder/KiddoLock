@@ -1,159 +1,159 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">KiddoLock</string>
-    <string name="accessibility_service_description">This service is required to enable app blocking. Please allow it.</string>
+    <string name="accessibility_service_description">שירות זה דרוש כדי לאפשר חסימת אפליקציות. אנא אשר אותו.</string>
     
     <!-- Main Activity -->
-    <string name="welcome_message">Hi Parent,</string>
-    <string name="protection_status">Protection Status:</string>
+    <string name="welcome_message">שלום הורה,</string>
+    <string name="protection_status">מצב הגנה:</string>
 
-    <string name="device_admin_label">KiddoLock Protection</string>
+    <string name="device_admin_label">הגנת KiddoLock</string>
     <string name="device_admin_description">מאפשר ל-KiddoLock להגן על המכשיר מפני הסרה לא מורשית</string>
     <string name="admin_settings">הגדרות הורים</string>
     <string name="set_bedtime">שעת שינה</string>
-    <string name="daily_limit">הגבלת זמן יומית</string>
-    <string name="strict_mode">מצב מחמיר (הגדרות חסימה)</string>
+    <string name="daily_limit">מגבלת זמן יומית</string>
+    <string name="strict_mode">מצב קפדני (חסימת הגדרות)</string>
     <string name="security_settings">אבטחה והגנה</string>
     <string name="prevent_uninstall">מנע הסרת אפליקציה</string>
     <string name="lock_device_now">נעל מכשיר כעת</string>
-    <string name="emergency_uninstall">הסרת חירום (דורש קוד)</string>
+    <string name="emergency_uninstall">הסרת חירום (דורש PIN)</string>
     <string name="bonus_time">זמן בונוס</string>
     <string name="grant_15_min">הוסף 15 דקות</string>
     <string name="grant_30_min">הוסף 30 דקות</string>
-    <string name="grant_1_hour">הוסף שעה קלה</string>
-    <string name="setup_title">ברוכים הבאים אל KiddoLock</string>
-    <string name="setup_subtitle">הגדר את המכשיר שלך ב-3 צעדים פשוטים</string>
+    <string name="grant_1_hour">הוסף שעה אחת</string>
+    <string name="setup_title">ברוכים הבאים ל-KiddoLock</string>
+    <string name="setup_subtitle">הגדר את המכשיר ב-5 שלבים פשוטים</string>
     <string name="continue_btn">המשך</string>
     <string name="finish_setup">סיום הגדרה</string>
     <string name="hello">שלום </string>
     <string name="settings_description">הגדרות</string>
-    <string name="protection_active">ההגנה פעילה</string>
+    <string name="protection_active">הגנה פעילה</string>
     <string name="remaining_hours">שעות שנותרו</string>
     <string name="apps_blocked">אפליקציות חסומות</string>
     <string name="daily_quota">מכסה יומית</string>
     <string name="usage_today">שימוש היום</string>
     <string name="quick_actions">פעולות מהירות</string>
-    <string name="lock_btn">נעילה</string>
+    <string name="lock_btn">נעל</string>
     <string name="add_time_btn">הוסף זמן</string>
     <string name="report_btn">דוח</string>
     <string name="management">️ ניהול</string>
     <string name="app_management">ניהול אפליקציות</string>
     <string name="app_management_sub">חסום או אשר אפליקציות</string>
-    <string name="time_limits_title">הגבלות זמן</string>
-    <string name="time_limits_sub">הגדר זמן מסך לכל אפליקציה</string>
+    <string name="time_limits_title">מגבלות זמן</string>
+    <string name="time_limits_sub">קבע זמן מסך לכל אפליקציה</string>
     <string name="schedule_title">לוח זמנים</string>
-    <string name="schedule_sub">שעות שקטות והגבלה יומית</string>
-    <string name="admin_pin_title">קוד הורים (PIN)</string>
-    <string name="pin_set">מוגדר ✓</string>
+    <string name="schedule_sub">שעות שקט ומגבלה יומית</string>
+    <string name="admin_pin_title">PIN הורים</string>
+    <string name="pin_set">הוגדר ✓</string>
     <string name="grant_2_hours">הוסף שעתיים</string>
     <string name="cancel">ביטול</string>
     <string name="app_approved_toast">האפליקציה אושרה ל-%1$d דקות ✅</string>
     <string name="lock_confirmed_toast">המכשיר יינעל כעת</string>
-    <string name="protection_inactive">ההגנה לא פעילה</string>
+    <string name="protection_inactive">הגנה לא פעילה</string>
     <string name="no_limit">ללא</string>
-    <string name="pin_not_set">לא מוגדר ⚠️</string>
+    <string name="pin_not_set">לא הוגדר ⚠️</string>
     <string name="setup_accessibility_toast">מצא את \'KiddoLock\' והפעל אותו</string>
-    <string name="setup_admin_explanation">נדרש כדי למנוע הסרה לא מורשית</string>
-    <string name="device_unlocked_toast">נעילת המכשיר שוחררה</string>
+    <string name="setup_admin_explanation">דרוש כדי למנוע הסרה לא מורשית</string>
+    <string name="device_unlocked_toast">המכשיר פתוח</string>
     <string name="device_locked_toast">המכשיר ננעל בהצלחה</string>
     <string name="uninstall_dialog_title">הסרת אפליקציה</string>
-    <string name="uninstall_dialog_message">האם אתה בטוח שברצונך להסיר את KiddoLock?\nפעולה זו תסיר את כל הגנות הליבה.</string>
+    <string name="uninstall_dialog_message">האם אתה בטוח שברצונך להסיר את KiddoLock?\nפעולה זו תסיר את כל ההגנות העיקריות.</string>
     <string name="uninstall_confirm">כן, הסר</string>
-    <string name="bedtime_updated_toast">שעת השינה עודכנה ל-%1$d:00</string>
-    <string name="select_daily_limit">בחר הגבלת זמן יומית</string>
-    <string name="limit_updated_toast">ההגבלה היומית עודכנה ל-%1$s</string>
+    <string name="bedtime_updated_toast">שעת שינה עודכנה ל-%1$d:00</string>
+    <string name="select_daily_limit">בחר מגבלה יומית</string>
+    <string name="limit_updated_toast">מגבלה יומית עודכנה ל-%1$s</string>
     <string name="limit_30_min">30 דקות</string>
-    <string name="limit_1_hour">שעה קלה</string>
+    <string name="limit_1_hour">שעה אחת</string>
     <string name="limit_2_hours">שעתיים</string>
     <string name="limit_3_hours">3 שעות</string>
     <string name="limit_unlimited">ללא הגבלה</string>
-    <string name="set_admin_pin">הגדר קוד הורים</string>
-    <string name="choose_new_pin">בחר קוד גישה חדש (לפחות 4 ספרות)</string>
+    <string name="set_admin_pin">הגדר PIN הורים</string>
+    <string name="choose_new_pin">בחר PIN חדש (לפחות 4 ספרות)</string>
     <string name="next">הבא</string>
-    <string name="first_setup_toast">הגדרה ראשונית — אנא בחר קוד גישה</string>
-    <string name="contact_admin_toast">צור קשר עם מנהל המערכת לאיפוס קוד</string>
-    <string name="pin_min_digits">קוד גישה חייב להיות לפחות 4 ספרות</string>
-    <string name="confirm_pin">הזן שוב קוד גישה לאימות</string>
-    <string name="save_pin">שמור קוד</string>
-    <string name="pin_set_success">קוד הגישה הוגדר בהצלחה</string>
-    <string name="pins_do_not_match">הקודים אינם תואמים. נסה שוב.</string>
-    <string name="wrong_pin">קוד שגוי (נותרו %1$d ניסיונות)</string>
-    <string name="locked_for_seconds">ננעל לעוד %1$d שניות</string>
-    <string name="enable_app_blocking">הפעל חסימת אפליקציות</string>
+    <string name="first_setup_toast">הגדרה ראשונית — אנא בחר PIN</string>
+    <string name="contact_admin_toast">צור קשר עם מנהל המערכת כדי לאפס את ה-PIN</string>
+    <string name="pin_min_digits">ה-PIN חייב להיות לפחות 4 ספרות</string>
+    <string name="confirm_pin">הזן שוב את ה-PIN לאימות</string>
+    <string name="save_pin">שמור PIN</string>
+    <string name="pin_set_success">ה-PIN הוגדר בהצלחה</string>
+    <string name="pins_do_not_match">ה-PIN אינו תואם. נסה שוב.</string>
+    <string name="wrong_pin">PIN שגוי (נותרו %1$d ניסיונות)</string>
+    <string name="locked_for_seconds">נעול ל-%1$d שניות</string>
+    <string name="enable_app_blocking">אפשר חסימת אפליקציות</string>
     <string name="app_blocking_active">חסימת אפליקציות פעילה</string>
-    <string name="app_blocking_inactive">חסימת אפליקציות מושבתת</string>
+    <string name="app_blocking_inactive">חסימת אפליקציות לא פעילה</string>
     <string name="apps_blocked_count">%1$d אפליקציות חסומות</string>
     <string name="search_apps_hint">חפש אפליקציות...</string>
     <string name="required_by_system">נדרש על ידי המערכת — לא ניתן לחסום</string>
-    <string name="locked_status">ננעל</string>
-    <string name="open_usage">פתוח • %1$d דק׳ היום</string>
+    <string name="locked_status">נעול</string>
+    <string name="open_usage">פתוח • %1$d דקות היום</string>
     <string name="open_status">פתוח</string>
     <string name="app_locks_saved">הגדרות נעילת אפליקציות נשמרו!</string>
-    <string name="app_time_limits_title">הגבלות זמן אפליקציות</string>
-    <string name="app_usage_summary">נוצל: %1$d מתוך %2$d דק׳</string>
+    <string name="app_time_limits_title">מגבלות זמן לאפליקציות</string>
+    <string name="app_usage_summary">בשימוש: %1$d מתוך %2$d דקות</string>
     <string name="btn_edit">ערוך</string>
-    <string name="set_limit_title">הגדר הגבלה (דקות ליום)</string>
+    <string name="set_limit_title">קבע מגבלה (דקות ליום)</string>
     <string name="settings_saved_success">ההגדרות נשמרו בהצלחה! ✅</string>
-    <string name="no_whitelist_items">אין פריטים ברשימה המאושרת. הוסף תוכן מאושר.</string>
-    <string name="temp_disable_title">השבתת הגנה זמנית</string>
-    <string name="temp_disable_msg">פעולה זו תשבית את כל המסננים למשך 5 דקות.\nהאם אתה בטוח?</string>
+    <string name="no_whitelist_items">אין פריטים ברשימת ההיתרים. הוסף תוכן מאושר.</string>
+    <string name="temp_disable_title">השעה הגנה באופן זמני</string>
+    <string name="temp_disable_msg">פעולה זו תשבית את כל המסננים ל-5 דקות.\nהאם אתה בטוח?</string>
     <string name="yes_disable">כן, השבת</string>
-    <string name="protection_disabled_toast">ההגנה הושבתה למשך 5 דקות ⚠️</string>
-    <string name="notif_action_unlock">ביטול חסימה זמני</string>
-    <string name="reason_remote_lock"> המכשיר ננעל מרחוק על ידי הורה</string>
-    <string name="reason_quiet_hours"> שעות שקטות — %1$d:00 עד %2$d:00</string>
-    <string name="reason_daily_limit">⏰ הגבלת זמן יומית הושגה (%1$d דק׳)</string>
-    <string name="app_blocked_reason">אפליקציה חסומה: %1$s</string>
-    <string name="app_time_limit_reached">האפליקציה הגיעה למגבלה היומית (%1$d דק׳)</string>
-    <string name="emergency_mode_toast">מצב חירום: ההגנה הושבתה למשך 2 דקות ⚠️</string>
-    <string name="weekly_report_summary_header">️ סיכום שבועי — KiddoLock</string>
-    <string name="weekly_report_screen_time"> זמן מסך היום: %1$d שעות %2$d דק׳</string>
-    <string name="weekly_report_top_app"> אפליקציה בשימוש נרחב: %1$s</string>
+    <string name="protection_disabled_toast">ההגנה הושבתה ל-5 דקות ⚠️</string>
+    <string name="notif_action_unlock">פתח זמנית</string>
+    <string name="reason_remote_lock">המכשיר ננעל מרחוק על ידי הורה</string>
+    <string name="reason_quiet_hours">שעות שקט — %1$d:00 עד %2$d:00</string>
+    <string name="reason_daily_limit">⏰ הוגעה למגבלה היומית (%1$d דקות)</string>
+    <string name="app_blocked_reason">האפליקציה חסומה: %1$s</string>
+    <string name="app_time_limit_reached">האפליקציה הגיעה למגבלה היומית (%1$d דקות)</string>
+    <string name="emergency_mode_toast">מצב חירום: ההגנה מושבתת</string>
+    <string name="weekly_report_summary_header">סיכום שבועי — KiddoLock</string>
+    <string name="weekly_report_screen_time"> זמן מסך היום: %1$d שעות ו-%2$d דקות</string>
+    <string name="weekly_report_top_app"> אפליקציה פופולרית ביותר: %1$s</string>
     <string name="weekly_report_no_usage"> לא נרשם שימוש משמעותי היום.</string>
-    <string name="weekly_report_footer">✨ המכשיר מוגן ומנוטר כראוי.</string>
+    <string name="weekly_report_footer">✨ המכשיר מוגן ומנוטר.</string>
     <string name="weekly_report_notif_title">הסיכום השבועי שלך מוכן </string>
     <string name="weekly_report_channel_name">דוחות שבועיים</string>
     <string name="weekly_report_channel_desc">סיכום שבועי של פעילות KiddoLock</string>
-    <string name="app_limit_exceeded_msg">⏱️ הגעת למגבלת הזמן היומית שלך עבור %1$s (%2$d דקות)</string>
+    <string name="app_limit_exceeded_msg">⏱️ הגעת למגבלת הזמן היומית עבור %1$s (%2$d דקות)</string>
     <string name="overlay_security_badge">אבטחת KIDDOLOCK</string>
-    <string name="overlay_blocked_msg">השימוש הוגבל על ידי הורה</string>
+    <string name="overlay_blocked_msg">השימוש מוגבל על ידי הורה</string>
     <string name="overlay_go_back">חזור למקום בטוח</string>
-    <string name="overlay_return_home">סגור אפליקציה וחזור הביתה</string>
-    <string name="overlay_parent_approval">אישור הורה</string>
+    <string name="overlay_return_home">סגור אפליקציה וחזור לבית</string>
+    <string name="overlay_parent_approval">אישור הורים</string>
     <string name="overlay_change_settings">שנה הגדרות בלוח הבקרה ⚙️</string>
     <string name="overlay_neutralize">⚡ נטרל הגנה כעת ⚡</string>
     <string name="overlay_emergency_uninstall"> הסרת חירום </string>
     <string name="overlay_msg_bedtime">לילה טוב, הגיע הזמן לישון \nהמכשיר יהיה זמין שוב בבוקר.</string>
-    <string name="overlay_msg_time_up">תם הזמן שלך להיום ⏰\nנתראה מחר!</string>
-    <string name="overlay_msg_limit_active">הגבלת זמן פעילה:\n\n%1$s</string>
-    <string name="overlay_msg_settings_blocked">הגישה להגדרות חסומה.\n\nפעולה זו עלולה להשבית את ההגנה.\nניתן לשנות הגדרות דרך לוח הבקרה.</string>
-    <string name="overlay_request_parent_approval">בקש אישור הורה</string>
-    <string name="overlay_neutralize_toast">כל ההגנות נוטרלו למשך 2 דקות ⚠️</string>
-    <string name="overlay_enter_pin_title">הזן קוד הורים לאישור</string>
+    <string name="overlay_msg_time_up">הזמן שלך נגמר להיום ⏰\nנתראה מחר!</string>
+    <string name="overlay_msg_limit_active">מגבלת זמן פעילה:\n\n%1$s</string>
+    <string name="overlay_msg_settings_blocked">הגישה להגדרות חסומה.\n\nזה עלול להשבית את ההגנה.\nניתן לשנות הגדרות דרך לוח הבקרה.</string>
+    <string name="overlay_request_parent_approval">בקש אישור הורים</string>
+    <string name="overlay_neutralize_toast">כל ההגנות נוטרלו ל-2 דקות ⚠️</string>
+    <string name="overlay_enter_pin_title">הזן PIN הורים כדי לאשר</string>
     <string name="overlay_btn_confirm_access">אשר גישה</string>
-    <string name="overlay_wrong_pin">Wrong parent PIN</string>
-    <string name="overlay_emergency_exit">Emergency Exit</string>
-    <string name="overlay_neutralize_success">Protection neutralized for 2 hours ⚠️</string>
-    <string name="overlay_locked_for">Locked for %1$d seconds</string>
-    <string name="addition_time_coming_soon">Time addition coming soon</string>
-    <string name="usage_reports_coming_soon">דוחות שימוש בבנייה</string>
-    <string name="apps_blocked_suffix">אפליקציות נחסמו</string>
+    <string name="overlay_wrong_pin">PIN הורים שגוי</string>
+    <string name="overlay_emergency_exit">יציאת חירום</string>
+    <string name="overlay_neutralize_success">ההגנה נוטרלה לשעתיים ⚠️</string>
+    <string name="overlay_locked_for">נעול ל-%1$d שניות</string>
+    <string name="addition_time_coming_soon">תוספת זמן תגיע בקרוב</string>
+    <string name="usage_reports_coming_soon">דוחות שימוש יגיעו בקרוב</string>
+    <string name="apps_blocked_suffix">אפליקציות חסומות</string>
     <string name="premium_name">KiddoLock Gold</string>
-    <string name="premium_status_active">רישיון פעיל לכל החיים</string>
+    <string name="premium_status_active">רישיון לכל החיים פעיל</string>
     <string name="premium_vip_badge">VIP</string>
-    <string name="usage_limit_reached">הגעת למגבלת הזמן היומית</string>
+    <string name="usage_limit_reached">הוגעה למגבלה היומית</string>
 
     <string-array name="admin_deactivation_keywords">
-        <item>השבת</item>
+        <item>נטרל</item>
         <item>הסר</item>
-        <item>בטל</item>
+        <item>ביטול</item>
     </string-array>
     <string name="protection_level">רמת הגנה</string>
     <string name="level_basic">בסיסית</string>
     <string name="level_standard">סטנדרטית</string>
-    <string name="level_strict">מחמירה</string>
-    <string name="manage_blocked_keywords">ניהול מילות מפתח לחסימה</string>
-    <string name="protected_apps_title">אפליקציות תחת הגנה</string>
+    <string name="level_strict">קפדנית</string>
+    <string name="manage_blocked_keywords">נהל מילות מפתח חסומות</string>
+    <string name="protected_apps_title">אפליקציות מוגנות</string>
 
     <!-- Usage Report Dialog -->
     <string name="daily_report_title">דוח שימוש יומי</string>
@@ -162,50 +162,45 @@
     <string name="apps_blocked_label">אפליקציות חסומות</string>
     <string name="daily_limit_label">מגבלה יומית</string>
     <string name="minutes_label">דקות</string>
-    <string name="settings_restricted">הגישה להגדרות הוגבלה מטעמי אבטחה</string>
-    <string name="uninstall_restricted">הסרת KiddoLock דורשת אישור הורה</string>
+    <string name="settings_restricted">הגישה להגדרות הוגבלה לצרכי אבטחה</string>
+    <string name="uninstall_restricted">הסרת KiddoLock דורשת אישור הורים</string>
     <string name="parent_access_btn">גישת הורים</string>
-    <string name="emergency_unlock_btn">כיבוי חירום (קוד PIN)</string>
+    <string name="emergency_unlock_btn">כיבוי חירום (PIN)</string>
     <string name="notif_content_monitoring">ההגנה פעילה ומנטרת את המכשיר</string>
-    <string name="notif_content_idle">ההגנה מושהית זמנית</string>
+    <string name="notif_content_idle">ההגנה הופסקה זמנית</string>
     <string name="notif_action_uninstall">הסרת חירום</string>
 
     <!-- System Status Card -->
     <string name="system_status_title">מצב הגנה ומערכת</string>
-    <string name="system_status_accessibility">שירות נגישות (Accessibility)</string>
+    <string name="system_status_accessibility">שירות נגישות</string>
     <string name="system_status_overlay">תצוגה מעל אפליקציות (Overlay)</string>
-    <string name="system_status_usage">גישה לנתוני שימוש (Usage Stats)</string>
-    <string name="system_status_admin">הרשאת מנהל מכשיר (Admin)</string>
+    <string name="system_status_usage">גישה לנתוני שימוש</string>
+    <string name="system_status_admin">הרשאת מנהל מכשיר</string>
     <string name="status_granted">פעיל</string>
     <string name="status_pending">חסר</string>
     <string name="btn_fix">תקן כעת</string>
-    <string name="permission_explanation_title">מדוע זה נדרש?</string>
+    <string name="permission_explanation_title">מדוע זה דרוש?</string>
     <string name="accessibility_explanation">מאפשר ל-KiddoLock לזהות איזו אפליקציה פתוחה ולחסום אותה במידת הצורך.</string>
     <string name="overlay_explanation">מאפשר להציג את מסך החסימה מעל אפליקציות אחרות.</string>
-    <string name="usage_explanation">מאפשר למדוד כמה זמן הילד שהה בכל אפליקציה.</string>
+    <string name="usage_explanation">מאפשר למדוד כמה זמן הילד בילה בכל אפליקציה.</string>
 
     <!-- PIN Entry Improvements -->
-    <string name="pin_entry_hint">הזן קוד הורים</string>
-    <string name="pin_entry_exit_hint">החלק למעלה כדי לחזור למסך הבית</string>
-    <string name="wrong_pin_shake_hint">קוד שגוי, נסה שוב</string>
-    <string name="guide_title_accessibility">איך להפעיל חסימת אפליקציות?</string>
-    <string name="guide_desc_accessibility">חפש את KiddoLock ברשימת השירותים המותקנים והעבר אותו למצב \'פעיל\'.</string>
-    <string name="guide_title_overlay">איך לאשר תצוגה מעל אפליקציות?</string>
-    <string name="guide_desc_overlay">מצא את KiddoLock ברשימה ואשר את האפשרות \'הצגה מעל אפליקציות\'.</string>
+    <string name="pin_entry_hint">הזן PIN הורים</string>
+    <string name="pin_entry_exit_hint">החלק למעלה כדי לחזור הביתה</string>
+    <string name="wrong_pin_shake_hint">PIN שגוי, נסה שוב</string>
+    <string name="guide_title_accessibility">איך לאפשר חסימה?</string>
+    <string name="guide_desc_accessibility">1. לחץ למטה כדי לעבור להגדרות\n2. מצא את \'KiddoLock\' ברשימת השירותים\n3. הפעל את המתג ל-\'פעיל\'</string>
+    <string name="guide_title_overlay">איך לאפשר תצוגה מעל אפליקציות?</string>
+    <string name="guide_desc_overlay">1. מצא את \'KiddoLock\' ברשימה\n2. הפעל את האפשרות \'תצוגה מעל אפליקציות אחרות\'</string>
     <string name="guide_title_admin">איך להפעיל הגנת הסרה?</string>
-    <string name="guide_desc_admin">לחץ על המקש למטה ואשר את \'KiddoLock\' כמנהל מכשיר.</string>
-    <string name="guide_btn_settings">המשך להגדרות</string>
-    <string-array name="kids_mode_predefined_whitelist">
-        <item>Smurfs</item>
-        <item>Paw Patrol</item>
-        <item>Frozen</item>
-        <item>Shrek</item>
-        <item>Moana</item>
-        <item>Spiderman</item>
-        <item>Cocomelon</item>
-        <item>Baby Shark</item>
-        <item>YouTube Kids</item>
-    </string-array>
-    <string name="lock_home_layout">Home Screen Layout Protection</string>
-    <string name="lock_home_layout_info">In Kids Mode, the home screen layout is automatically locked to prevent app deletion and layout changes.</string>
+    <string name="guide_desc_admin">1. לחץ למטה כדי לאשר\n2. בחר \'הפעל\' כדי למנוע מהילד למחוק את האפליקציה</string>
+    <string name="guide_title_notifications">איך לאשר התראות?</string>
+    <string name="guide_desc_notifications">אפשר ל-KiddoLock לשלוח התראות כדי לוודא שכל ההגנות עובדות בצורה תקינה.</string>
+    <string name="guide_title_usage">איך לאשר גישה לנתוני שימוש?</string>
+    <string name="guide_desc_usage">1. מצא את \'KiddoLock\' ברשימה\n2. הפעל את המתג \'אפשר מעקב שימוש\'</string>
+    <string name="setup_step_7_title">6. אימייל לשחזור</string>
+    <string name="guide_btn_understood">הבנתי, המשך להגדרות ←</string>
+
+    <string name="btn_emergency_uninstall_parent">הסרת חירום של KiddoLock</string>
 </resources>
+

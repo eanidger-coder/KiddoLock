@@ -16,6 +16,7 @@ class AppManager(private val context: Context) {
         private const val PREFS_NAME = "kiddolock_app_prefs"
         private const val KEY_BLACKLISTED_APPS = "blacklisted_apps"
         private const val KEY_APP_BLOCKING_ENABLED = "app_blocking_enabled"
+        private const val LAUNCHER_CACHE_TTL = 60_000L // 1 minute
     }
 
     /**
@@ -37,10 +38,18 @@ class AppManager(private val context: Context) {
 
         // Browsers
         "com.android.chrome",
+        "org.mozilla.firefox",
+        "com.sec.android.app.sbrowser", // Samsung Browser
+        "com.opera.browser",
+        "com.microsoft.emmx", // Edge
+        "com.brave.browser",
+        "com.duckduckgo.mobile.android",
 
         // App Stores & Package Managers (Critical Hardening)
         "com.android.settings",
+        "com.android.settings.intelligence",
         "com.samsung.android.settings",
+        "com.samsung.android.settings.intelligence",
         "com.google.android.packageinstaller",
         "com.android.vending", // Google Play Store
         "com.sec.android.app.samsungapps", // Galaxy Store
@@ -50,6 +59,8 @@ class AppManager(private val context: Context) {
         // Communication (Default blocked to encourage manual allow)
         "com.google.android.gm",
         "com.microsoft.office.outlook",
+        "com.android.packageinstaller",
+        "com.samsung.android.packageinstaller",
 
         // Google Services & Entertainment
         "com.google.android.googlequicksearchbox", // Google Search
@@ -59,7 +70,14 @@ class AppManager(private val context: Context) {
         // Media & Files
         "com.google.android.apps.photos",
         "com.sec.android.gallery3d",
+        "com.android.gallery3d",
+        "com.android.gallery",
+        "com.miui.gallery",
+        "com.huawei.photos",
+        "com.coloros.gallery",
+        "com.oneplus.gallery",
         "com.google.android.apps.docs",
+        "com.microsoft.skydrive", // OneDrive
 
         // Dating
         "com.tinder",
@@ -98,8 +116,15 @@ class AppManager(private val context: Context) {
         "com.sec.android.app.launcher",
         "com.miui.home",
         "com.huawei.android.launcher",
-        "com.kiddolock.app"
+        "com.kiddolock.app",
+        "android",
+        "com.google.android.apps.wellbeing",
+        "com.google.android.permissioncontroller",
+        "com.android.settings.intelligence"
     )
+
+    private val launcherPackages = HashSet<String>()
+    private var lastLauncherUpdate = 0L
 
     // Apps that bypass Time Restrictions by default but CAN be manually locked by parent
     val ESSENTIAL_APPS_WHITELIST = setOf(
@@ -151,6 +176,80 @@ class AppManager(private val context: Context) {
             prefs.edit().putInt("blacklist_version", 5).apply()
         }
 
+        // Migration: V6 (Expand blacklist with all browsers and settings intelligence)
+        if (blacklistVersion < 6) {
+            blacklistedApps.add("org.mozilla.firefox")
+            blacklistedApps.add("com.sec.android.app.sbrowser")
+            blacklistedApps.add("com.opera.browser")
+            blacklistedApps.add("com.microsoft.emmx")
+            blacklistedApps.add("com.brave.browser")
+            blacklistedApps.add("com.duckduckgo.mobile.android")
+            blacklistedApps.add("com.android.settings") 
+            blacklistedApps.add("com.samsung.android.settings") 
+            blacklistedApps.add("com.android.settings.intelligence")
+            blacklistedApps.add("com.samsung.android.settings.intelligence")
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 6).apply()
+        }
+
+        // Migration: V7 (Forced Hardening - Correcting previous version oversights)
+        if (blacklistVersion < 7) {
+            val critical = listOf(
+                "com.android.settings",
+                "com.samsung.android.settings",
+                "com.android.settings.intelligence",
+                "com.samsung.android.settings.intelligence",
+                "com.android.chrome",
+                "org.mozilla.firefox"
+            )
+            critical.forEach { blacklistedApps.add(it) }
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 7).apply()
+            Log.i(TAG, "Migration V7: Hardened critical app list")
+        }
+
+        // Migration: V8 (Gmail & Uninstallation Hardening)
+        if (blacklistVersion < 8) {
+            val critical = listOf(
+                "com.google.android.gm",
+                "com.google.android.packageinstaller",
+                "com.android.packageinstaller",
+                "com.samsung.android.packageinstaller",
+                "com.android.settings",
+                "com.samsung.android.settings"
+            )
+            critical.forEach { blacklistedApps.add(it) }
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 8).apply()
+            Log.i(TAG, "Migration V8: Hardened Gmail and Uninstallation guards")
+        }
+
+        // Migration: V9 (OneDrive Hardening)
+        if (blacklistVersion < 9) {
+            blacklistedApps.add("com.microsoft.skydrive")
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 9).apply()
+            Log.i(TAG, "Migration V9: Hardened OneDrive")
+        }
+        // Migration: V10 (Comprehensive Gallery & Media Hardening)
+        if (blacklistVersion < 10) {
+            val galleries = listOf(
+                "com.google.android.apps.photos",
+                "com.sec.android.gallery3d",
+                "com.android.gallery3d",
+                "com.android.gallery",
+                "com.miui.gallery",
+                "com.huawei.photos",
+                "com.coloros.gallery",
+                "com.oneplus.gallery",
+                "com.google.android.gm",
+                "com.microsoft.skydrive"
+            )
+            galleries.forEach { blacklistedApps.add(it) }
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 10).apply()
+            Log.i(TAG, "Migration V10: Performed comprehensive Gallery & Media hardening")
+        }
         val savedBlacklist = prefs.getStringSet(KEY_BLACKLISTED_APPS, null)
         blacklistedApps.clear()
         if (savedBlacklist != null) {
@@ -162,6 +261,72 @@ class AppManager(private val context: Context) {
         }
 
         Log.i(TAG, "App Manager initialized: ${blacklistedApps.size} apps blacklisted, blocking=${blockingEnabled}")
+    }
+
+    /**
+     * Check if a package is a browser.
+     */
+    fun isBrowser(packageName: String): Boolean {
+        try {
+            val pm = context.packageManager
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("http://www.google.com"))
+            val flags = PackageManager.MATCH_DEFAULT_ONLY or PackageManager.GET_RESOLVED_FILTER
+            val resolveInfos = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
+            } else {
+                pm.queryIntentActivities(intent, flags)
+            }
+            return resolveInfos.any { it.activityInfo.packageName == packageName }
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    /**
+     * Check if a package is a launcher (home screen).
+     */
+    fun isLauncher(packageName: String): Boolean {
+        if (CORE_SYSTEM_WHITELIST.contains(packageName)) return true
+        
+        val now = System.currentTimeMillis()
+        if (launcherPackages.isEmpty() || now - lastLauncherUpdate > LAUNCHER_CACHE_TTL) {
+            updateLauncherCache()
+        }
+        
+        return launcherPackages.contains(packageName)
+    }
+
+    private fun updateLauncherCache() {
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_MAIN)
+            intent.addCategory(android.content.Intent.CATEGORY_HOME)
+            val pm = context.packageManager
+            val flags = PackageManager.MATCH_DEFAULT_ONLY
+            val resolveInfos = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
+            } else {
+                pm.queryIntentActivities(intent, flags)
+            }
+            
+            launcherPackages.clear()
+            resolveInfos.forEach { 
+                val pkg = it.activityInfo.packageName
+                // PRECISION FILTER: A launcher should NOT be a critical blocked app (like Settings)
+                // We check basic patterns here to avoid circular dependencies with AppBlockManager
+                val isCriticalPattern = pkg.contains("settings", ignoreCase = true) || 
+                                      pkg.contains("packageinstaller", ignoreCase = true) ||
+                                      pkg.contains("chrome", ignoreCase = true) ||
+                                      pkg.contains("browser", ignoreCase = true)
+                
+                if (!isCriticalPattern) {
+                    launcherPackages.add(pkg)
+                }
+            }
+            lastLauncherUpdate = System.currentTimeMillis()
+            Log.d(TAG, "Launcher cache updated (filtered): $launcherPackages")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating launcher cache", e)
+        }
     }
 
     /**

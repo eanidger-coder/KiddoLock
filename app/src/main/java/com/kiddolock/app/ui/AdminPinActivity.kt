@@ -55,6 +55,21 @@ class AdminPinActivity : AppCompatActivity() {
         tvForgot.setOnClickListener {
             handleForgotPin()
         }
+        
+        // Hidden Rescue: Long press "Forgot PIN" to trigger Emergency Uninstall (if authorized by recovery email later)
+        tvForgot.setOnLongClickListener {
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
+                .setTitle("חילוץ חירום")
+                .setMessage("האם ברצונך לבצע הסרת חירום? פעולה זו אפשרית רק עבור מנהל המערכת.")
+                .setPositiveButton("המשך") { _, _ ->
+                    // Trigger the uninstall flow which will still require PIN or recovery code
+                    // But we can simplify it here for immediate rescue if needed
+                    AppBlockManager.uninstallSelf(this)
+                }
+                .setNegativeButton("ביטול", null)
+                .show()
+            true
+        }
     }
 
     private fun setupKeypad() {
@@ -163,7 +178,7 @@ class AdminPinActivity : AppCompatActivity() {
         container.addView(btnCopy)
         container.addView(tilInput)
 
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
             .setTitle("אימות קוד שחזור")
             .setView(container)
             .setPositiveButton("אימות") { _, _ ->

@@ -67,6 +67,7 @@ class Prefs(context: Context) {
         get() = prefs.getBoolean("instant_lock", false)
         set(value) = prefs.edit().putBoolean("instant_lock", value).apply()
 
+
     /**
      * Clear all preferences.
      */

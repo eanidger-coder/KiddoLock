@@ -156,6 +156,7 @@ class AdminActivity : AppCompatActivity() {
         }
 
 
+
         
         cardProtectionStatus = findViewById(R.id.cardProtectionStatus)
         viewStatusDot = findViewById(R.id.viewStatusDot)
@@ -165,6 +166,9 @@ class AdminActivity : AppCompatActivity() {
         // Removed recovery email initialization to streamline UI
 
 
+        findViewById<View>(R.id.btnEmergencyUninstall).setOnClickListener {
+            showUninstallDialog()
+        }
     }
 
     private fun setupListeners() {
@@ -206,7 +210,9 @@ class AdminActivity : AppCompatActivity() {
         findViewById<View>(R.id.cardHelp).setOnClickListener {
             startActivity(Intent(this, HelpActivity::class.java))
         }
+
     }
+
 
 
     private fun loadApps() {
@@ -260,7 +266,7 @@ class AdminActivity : AppCompatActivity() {
         val items = arrayOf("5 דקות", "10 דקות", "15 דקות", "30 דקות", "שעה אחת", "שעתיים", "3 שעות", "לא מוגבל")
         val values = intArrayOf(5, 10, 15, 30, 60, 120, 180, -1)
         
-        AlertDialog.Builder(this)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
             .setTitle("בחר מגבלה יומית")
             .setItems(items) { _, which ->
                 val limit = values[which]
@@ -275,7 +281,7 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun showUninstallDialog() {
-        AlertDialog.Builder(this)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
             .setTitle(R.string.notif_action_uninstall)
             .setMessage("האם אתה בטוח שברצונך להסיר את KiddoLock? פעולה זו תבטל את כל ההגנות באופן מיידי.")
             .setPositiveButton("הסר עכשיו") { _, _ ->

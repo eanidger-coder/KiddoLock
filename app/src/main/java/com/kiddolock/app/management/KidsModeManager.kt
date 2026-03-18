@@ -24,4 +24,5 @@ class KidsModeManager(private val context: Context) {
         // We no longer use a hardcoded list. Everything is managed via AppManager's blacklist.
         return false
     }
+
 }

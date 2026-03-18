@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.kiddolock.app.management.AppBlockManager
+import com.kiddolock.app.management.KidsModeManager
 import com.kiddolock.app.ui.OverlayService
 import com.kiddolock.app.utils.NotificationUtils
 
@@ -18,8 +19,14 @@ class KiddoLockAccessibilityService : AccessibilityService() {
     private lateinit var bypassGuard: BypassGuard
     private var currentForegroundPackage: String? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var lastNavigationTime = 0L // Guard against loops during Home navigation
+    private var isHomeTransitioning = false // Flag for 1.5s Home grace period
     
-    // Periodic check every 10 seconds to track usage and enforce limits
+    companion object {
+        private const val NAVIGATION_GUARD_MS = 1500L // Increased for better stability
+        private const val TAG = "AccessibilityService"
+        private const val USAGE_RECORD_INTERVAL_MS = 60000L 
+    }
     private val periodicCheckRunnable = object : Runnable {
         override fun run() {
             try {
@@ -31,8 +38,44 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                     return
                 }
 
+                // REFRESH PACKAGE TRACKING: Ensure we aren't using a stale value from a missed event
+                val activePkg = rootInActiveWindow?.packageName?.toString()
+                if (activePkg != null && !activePkg.contains("com.android.systemui") && activePkg != packageName) {
+                    currentForegroundPackage = activePkg
+                }
+
                 currentForegroundPackage?.let { pkg ->
+                    // Do not block our own app or system UI
                     if (pkg != packageName && !pkg.contains("com.android.systemui")) {
+                        val appManager = AppBlockManager.getAppManager(this@KiddoLockAccessibilityService)
+                        
+                        // DOUBLE CHECK: Is the app actually in foreground AND not the launcher?
+                        // This prevents "jumping" when the record is stale but user is actually Home.
+                        val realPkg = rootInActiveWindow?.packageName?.toString()
+                        if (realPkg != null) {
+                            if (appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) {
+                                Log.v(TAG, "Periodic check: Actual window is $realPkg (Safe). Skipping stale block for $pkg")
+                                // 2. CHECK: If we are on a safe screen (Home/System/Allowed), hide any stale overlay
+                                val timeSinceBlock = System.currentTimeMillis() - lastBlockTime
+                                
+                                if ((appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) && timeSinceBlock > 5000) {
+                                    Log.v(TAG, "Periodic check: Actual window is $realPkg (Safe). Hiding stale overlay (Time since block: $timeSinceBlock ms)")
+                                    val intent = Intent(this@KiddoLockAccessibilityService, OverlayService::class.java).apply {
+                                        action = "HIDE_OVERLAY"
+                                    }
+                                    startService(intent)
+                                } else {
+                                    Log.v(TAG, "Periodic check: $realPkg is active. Persistence guard active or not a safe screen. Keeping overlay.")
+                                }
+                                currentForegroundPackage = realPkg
+                                return@let
+                            }
+                        } else {
+                            // HEURISTIC: If root window is null during transition, assume it's safe to wait
+                            Log.v(TAG, "Periodic check: Root window is null. Skipping block to avoid race condition.")
+                            return@let
+                        }
+
                         // 1. Record usage
                         checkAndRecordUsage(pkg)
                         
@@ -82,7 +125,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
     private fun checkAndRecordUsage(packageName: String) {
         val now = System.currentTimeMillis()
-        if (now - lastUsageRecordTime >= 60000) { // Every 1 minute
+        if (now - lastUsageRecordTime >= USAGE_RECORD_INTERVAL_MS) { // Use constant
             // OPTIMIZATION: Use cached AppManager instead of creating a new one
             val appManager = AppBlockManager.getAppManager(this)
             if (!appManager.isSystemProtected(packageName)) {
@@ -94,9 +137,6 @@ class KiddoLockAccessibilityService : AccessibilityService() {
     }
 
 
-    companion object {
-        private const val TAG = "AccessibilityService"
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -110,55 +150,107 @@ class KiddoLockAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        // ONLY process window state changes — this is the actual app-switch event.
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-
         val packageName = event.packageName?.toString() ?: return
+        
+        // Track foreground app more aggressively (Window switch, Focus change, etc.)
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || 
+            event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
+            event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            
+            if (!packageName.contains("com.android.systemui") && packageName != this.packageName) {
+                currentForegroundPackage = packageName
+                
+                // FORCE HIDE: If we transition to a launcher, immediately kill any lingering overlay
+                val appManager = AppBlockManager.getAppManager(this)
+                // REGRESSION FIX: If we just blocked an app, we want the overlay to STAY visible
+                // over the HOME screen. Only hide if it's been a while.
+                val timeSinceBlock = System.currentTimeMillis() - lastBlockTime
+                if (appManager.isLauncher(packageName) && timeSinceBlock > 5000) {
+                    Log.v(TAG, "Aggressive Detection: Launcher $packageName detected. Hiding overlay.")
+                    val intent = Intent(this, OverlayService::class.java).apply {
+                        action = "HIDE_OVERLAY"
+                    }
+                    startService(intent)
+                }
+            }
+        }
+
+        // ONLY perform blocking logic on window state changes (major transitions)
+        // TYPE_WINDOW_CONTENT_CHANGED is only for package tracking
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && 
+            event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
+
         val className = event.className?.toString()
 
-        // Track foreground app
-        if (!packageName.contains("com.android.systemui") && packageName != this.packageName) {
-            currentForegroundPackage = packageName
-        }
 
         // Skip our own app and system UI for blocking
         if (packageName == this.packageName || packageName.contains("com.kiddolock.app")) return
         if (packageName == "com.android.systemui") return
 
         try {
-            // HEURISTIC 1: Check if the event is high-priority for window changes
-            // Some non-full-screen events (search results) trigger this but shouldn't be blocked
-            if (!event.isFullScreen) {
-                Log.v(TAG, "Ignoring non-full-screen window change for $packageName (likely search result or dialog)")
+            // 0.1 Absolute Whitelist Check (Launcher & Core System)
+            // We check this FIRST to prevent loops on the home screen.
+            val now = System.currentTimeMillis()
+            if (now - lastNavigationTime < NAVIGATION_GUARD_MS) {
+                Log.v(TAG, "Navigation Guard: Ignoring event for $packageName (Too soon after navigation)")
                 return
             }
 
-            val activePkg = rootInActiveWindow?.packageName?.toString()
-            Log.d(TAG, "Window changed: pkg=$packageName (active=$activePkg) cls=$className isFullScreen=${event.isFullScreen}")
+            // OPTIMIZATION: Use cached AppManager to avoid re-reading prefs on every event
+            val appManager = AppBlockManager.getAppManager(this)
+            val kidsMode = KidsModeManager(this)
 
-            // HEURISTIC 2: Double-check with root window package
-            // If the event package doesn't match the root window package, it's likely a sub-view or search result
+            if (appManager.isSystemProtected(packageName) || appManager.isLauncher(packageName)) {
+                Log.v(TAG, "Event in $packageName: Whitelisted (System/Launcher). Ensuring overlay hidden.")
+                val intent = Intent(this, OverlayService::class.java).apply {
+                    action = "HIDE_OVERLAY"
+                }
+                startService(intent)
+                return
+            }
+
+            // 0.2 Root Window Heuristic
+            // Ensure the window being reported is actually the active one.
+            // If the user just pressed "Home", we might still get events for the previous app (Gallery).
+            val activePkg = rootInActiveWindow?.packageName?.toString()
             if (activePkg != null && activePkg != packageName) {
-                // EXCEPTION: If we are in Launcher or SystemUI, and the event is for a DIFFERENT package,
-                // it's almost certainly a search result or a floating notification/preview.
-                if (activePkg.contains("launcher") || activePkg.contains("home") || activePkg == "com.android.systemui") {
-                    Log.v(TAG, "Ignoring event for $packageName: Root window belongs to $activePkg (Likely search result/preview)")
+                if (appManager.isLauncher(activePkg) || appManager.isSystemProtected(activePkg)) {
+                    Log.v(TAG, "Heuristic: Ignoring event for $packageName. Active window is $activePkg (Safe)")
                     return
                 }
             }
-            
-            // Expert QA Hook: Dump internal state on every window change to catch desyncs
-            AppBlockManager.dumpState(this)
 
-            // 1. Check Global Block (Time, Bedtime, Instant Lock, Blacklist)
-            if (AppBlockManager.isAppBlocked(this, packageName)) {
+            // 0.3 Zero-Latency Safeguard (Critical Apps)
+            val isCritical = AppBlockManager.isCriticalApp(packageName)
+            // EMERGENCY RULE: If Global Suppression is active, the parent is in control.
+            // Do not block critical apps during this window (allows for fixes or uninstallation).
+            if (kidsMode.isEnabled && isCritical && !packageName.contains("kiddolock") && !AppBlockManager.isGlobalSuppressed) {
+                Log.w(TAG, "SAFEGUARD: Blocking critical app $packageName")
+                lastNavigationTime = System.currentTimeMillis() // Start guard
+                performGlobalAction(GLOBAL_ACTION_HOME)
                 showBlockOverlay(packageName)
+                return
+            }
+
+            // 1. Core Blocking Check (Blacklist & Time Limits)
+            val isBlocked = AppBlockManager.isAppBlocked(this, packageName)
+            Log.v(TAG, "Check: pkg=$packageName isBlocked=$isBlocked kidsOn=${kidsMode.isEnabled}")
+            
+            if (isBlocked) {
+                Log.i(TAG, "Blocking $packageName (isAppBlocked=true)")
+                showBlockOverlay(packageName)
+                return
+            }
+
+            // HEURISTIC 3: Check if the event is high-priority for window changes
+            if (!event.isFullScreen) {
                 return
             }
 
             // 2. Check Bypass Guard (Settings protect, Uninstall protect, locked system apps)
             val action = bypassGuard.checkNavigation(packageName, className)
-            if (action != BypassGuard.BypassAction.ALLOW) {
+            if (action == BypassGuard.BypassAction.BLOCK_SETTINGS || action == BypassGuard.BypassAction.BLOCK_UNINSTALL) {
+                Log.i(TAG, "BypassGuard blocking: $packageName ($action)")
                 showBlockOverlay(packageName)
             }
         } catch (e: Exception) {
@@ -192,6 +284,10 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
         Log.i(TAG, "Showing block overlay for $packageName")
         
+        // FORCE navigate to Home — prevent blocked app from staying under the overlay
+        lastNavigationTime = System.currentTimeMillis() // Start guard
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        
         val intent = Intent(this, OverlayService::class.java).apply {
             action = "SHOW_OVERLAY"
             putExtra("package_name", packageName)
@@ -206,7 +302,9 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         Log.i(TAG, "Service connected. Configuring...")
 
         serviceInfo = serviceInfo?.apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                         AccessibilityEvent.TYPE_WINDOWS_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 100
             flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
@@ -232,4 +330,3 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         }
     }
 }
-

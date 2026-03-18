@@ -5,6 +5,8 @@ import android.util.Log
 import android.os.Handler
 import android.os.Looper
 import com.kiddolock.app.services.TimeScheduler
+import android.content.Intent
+import android.content.ComponentName
 import com.kiddolock.app.utils.Prefs
 
 object AppBlockManager {
@@ -140,9 +142,27 @@ object AppBlockManager {
             return false
         }
 
-        // 0.05 Check if Kids Mode is ENABLED (Master Switch)
+        val appManager = getAppManager(context)
         val kidsModeManager = getKidsModeManager(context)
-        if (!kidsModeManager.isEnabled) {
+        val isKidsModeEnabled = kidsModeManager.isEnabled
+
+        // 0.04 CORE WHITELISTS (System Protected) - ALWAYS ALLOW
+        // We check this BEFORE the critical app safeguard to prevent blocking the home screen or system UI.
+        if (appManager.isSystemProtected(packageName) || appManager.isLauncher(packageName)) {
+            Log.v("AppBlockManager", "[DECISION] ALLOW $packageName: CORE system app or Launcher")
+            return false
+        }
+
+        // 0.06 CRITICAL IMMUTABLE PROTECTION: Block settings/browsers/stores by default in Kids Mode
+        // This check is performed AFTER whitelist to avoid blocking loops on home screen.
+        if (isKidsModeEnabled) {
+            if (isCriticalApp(packageName)) {
+                Log.w("AppBlockManager", "[DECISION] BLOCK $packageName: IMMUTABLE protection active in Kids Mode")
+                return true
+            }
+        }
+
+        if (!isKidsModeEnabled) {
             Log.v("AppBlockManager", "[DECISION] ALLOW $packageName: Kids Mode is DISABLED (Master Switch)")
             return false
         }
@@ -163,6 +183,28 @@ object AppBlockManager {
 
         try {
             val appManager = getAppManager(context)
+
+            // 0.2 Kids Mode Default Protections (Priority over system whitelist for launchers)
+            if (kidsModeManager.isEnabled) {
+                // Note: We no longer block the home screen (launcher) here. 
+                // We rely on the child being restricted to approved apps.
+                // If the parent wants to lock positions, they use the "Lock Home Layout" feature.
+                
+                // In Kids Mode, we check the standard blacklist.
+                if (appManager.isBlacklisted(packageName)) {
+                    Log.d("AppBlockManager", "[DECISION] BLOCK $packageName: Specifically blacklisted in Kids Mode")
+                    return true
+                }
+                
+                // NEW: Block all browsers by default in Kids Mode
+                if (appManager.isBrowser(packageName)) {
+                    Log.d("AppBlockManager", "[DECISION] BLOCK $packageName: Automatic browser blocking in Kids Mode")
+                    return true
+                }
+
+                Log.v("AppBlockManager", "[DECISION] ALLOW $packageName: Passing Kids Mode whitelist")
+                // fall through to other checks (like bedtime) if they apply
+            }
 
             // 1. Check if it's a CORE critical system app
             if (appManager.CORE_SYSTEM_WHITELIST.contains(packageName)) {
@@ -188,13 +230,6 @@ object AppBlockManager {
                 
                 val reason = timeScheduler.getRestrictionReason() ?: "Global restriction"
                 Log.d("AppBlockManager", "[DECISION] BLOCK $packageName: $reason")
-                return true
-            }
-
-            // 4. Check Kids Mode Default Protections
-            val kidsModeManager = getKidsModeManager(context)
-            if (kidsModeManager.isProtectedInKidsMode(packageName)) {
-                Log.d("AppBlockManager", "[DECISION] BLOCK $packageName: Kids Mode Protection")
                 return true
             }
 
@@ -233,6 +268,23 @@ object AppBlockManager {
         temporaryUnlocksCache.clear()
         saveTemporaryUnlocksToPrefs(context)
         Log.w("AppBlockManager", "EXPERT QA: All temporary unlocks CLEARED")
+    }
+
+    /**
+     * Resets ALL temporary overrides (Global Suppression and Temporary App Unlocks).
+     * Used when re-enabling Kids Mode to ensure immediate maximum protection.
+     */
+    fun clearAllBypasses(context: Context) {
+        ensureInitialized(context)
+        isGlobalSuppressed = false
+        temporaryUnlocksCache.clear()
+        
+        val prefs = Prefs(context)
+        prefs.emergency_bypass_until = 0
+        prefs.temporaryUnlocks = emptySet()
+        
+        invalidateCache()
+        Log.i("AppBlockManager", "CLEAN SLATE: All temporary bypasses and suppressions CLEARED.")
     }
 
 
@@ -275,12 +327,15 @@ object AppBlockManager {
         context.startActivity(intent)
     }
 
-    fun setGlobalSuppression(context: Context, suppressed: Boolean) {
+    fun setGlobalSuppression(context: Context, suppressed: Boolean, isPermanent: Boolean = false) {
         isGlobalSuppressed = suppressed
         val prefs = Prefs(context)
         if (suppressed) {
-            prefs.emergency_bypass_until = System.currentTimeMillis() + (10 * 60 * 1000L)
-            Log.i("AppBlockManager", "Global suppression ENABLED (10 min)")
+            // If permanent, set to a date far in the future (e.g. 10 years). 
+            // Otherwise, used for the 8888 failsafe (10 min).
+            val duration = if (isPermanent) 3650L * 24 * 60 * 60 * 1000L else 10 * 60 * 1000L
+            prefs.emergency_bypass_until = System.currentTimeMillis() + duration
+            Log.i("AppBlockManager", "Global suppression ENABLED (${if (isPermanent) "until reset" else "10 min"})")
         } else {
             prefs.emergency_bypass_until = 0
             Log.i("AppBlockManager", "Global suppression DISABLED")
@@ -304,5 +359,32 @@ object AppBlockManager {
         Log.i("AppBlockManager", "Instant Lock: ${prefs.instant_lock}")
         Log.i("AppBlockManager", "Temporary Unlocks: ${temporaryUnlocksCache.keys}")
         Log.i("AppBlockManager", "============================")
+    }
+
+    /**
+     * Identifies critical apps that must remain blocked in Kids Mode regardless of user settings.
+     * Includes: Settings, App Stores, Package Installers, and major Browsers.
+     */
+    /**
+     * Identifies critical apps that must remain blocked in Kids Mode regardless of user settings.
+     * Includes: Settings, App Stores, Package Installers, and major Browsers.
+     * This is PUBLIC so the Accessibility Service can use it for its fast safeguard.
+     */
+    fun isCriticalApp(packageName: String): Boolean {
+        val p = packageName.lowercase()
+        return p.contains("settings") || 
+               p.contains("packageinstaller") || 
+               p.contains("installer") ||
+               p == "com.android.vending" || // Play Store
+               p.contains("samsungapps") || // Galaxy Store
+               p.contains("samsung.android.sm") || // Smart Manager
+               p.contains("samsung.android.lool") || // Device Care
+               p.contains("chrome") || 
+               p.contains("firefox") ||
+               p.contains("msedge") ||
+               p.contains("opera.browser") ||
+               p.contains("brave.browser") ||
+               p.contains("duckduckgo.mobile") ||
+               p.contains("browser") // Broad fallback for manufacturer browsers
     }
 }

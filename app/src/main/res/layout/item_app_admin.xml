@@ -73,7 +73,9 @@
                 android:textColor="@color/glass_white_50"
                 android:textSize="12sp"
                 android:maxLines="2"
-                android:ellipsize="end" />
+                android:ellipsize="end"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
 
             <TextView
                 android:id="@+id/tvAppLimit"

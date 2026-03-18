@@ -24,8 +24,15 @@ class KiddoDeviceAdminReceiver : DeviceAdminReceiver() {
      * Returns a warning message that Android shows BEFORE allowing disable.
      * This is the first line of defense — makes the child hesitate.
      */
-    override fun onDisableRequested(context: Context, intent: Intent): CharSequence {
-        Log.w("KiddoDeviceAdmin", "ALERT: Someone is trying to disable Device Admin!")
+    override fun onDisableRequested(context: Context, intent: Intent): CharSequence? {
+        val kidsModeEnabled = com.kiddolock.app.management.KidsModeManager(context).isEnabled
+        
+        if (!kidsModeEnabled) {
+            Log.i("KiddoDeviceAdmin", "Kids Mode is OFF. Allowing deactivation.")
+            return null
+        }
+
+        Log.w("KiddoDeviceAdmin", "ALERT: Someone is trying to disable Device Admin while Kids Mode is ON!")
         
         // --- SECURITY TRAP ---
         // Launch the PIN entry screen immediately. In a 2026 app, we use a high-priority 
@@ -38,7 +45,7 @@ class KiddoDeviceAdminReceiver : DeviceAdminReceiver() {
         context.startActivity(pinIntent)
 
         // Fire a high-priority notification so the parent knows
-        NotificationUtils.showSetupIncompleteNotification(
+        com.kiddolock.app.utils.NotificationUtils.showSetupIncompleteNotification(
             context,
             "ניסיון השבתת הגנה זוהה! המכשיר ננעל."
         )
