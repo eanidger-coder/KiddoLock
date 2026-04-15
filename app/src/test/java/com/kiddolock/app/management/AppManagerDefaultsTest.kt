@@ -108,6 +108,52 @@ class AppManagerDefaultsTest {
     }
 
     @Test
+    fun youtubeKids_isNotAppBlocked_soContentFilterCanSeeIt() {
+        // Regression for the "Kids Mode on but YouTube Kids unfiltered" bug.
+        // YouTube Kids must NOT be in the app-level blacklist — otherwise
+        // AppBlockManager short-circuits before the accessibility-based
+        // content filter ever gets a chance to screen individual videos.
+        val mgr = AppManager(context)
+        mgr.initialize()
+
+        assertFalse(
+            "YouTube Kids must reach the content filter (not app-blocked)",
+            mgr.isBlacklisted("com.google.android.apps.youtube.kids"),
+        )
+        // Regular YouTube (unrestricted) stays blocked — filter can't keep
+        // an entire open web feed safe.
+        assertTrue(
+            "Regular YouTube should remain app-blocked",
+            mgr.isBlacklisted("com.google.android.youtube"),
+        )
+    }
+
+    @Test
+    fun v12Migration_removesYouTubeKids_forExistingUser() {
+        // A parent who installed pre-V12 had YouTube Kids in their blocklist.
+        // V12 must remove it so the content filter can take over.
+        val prefs = context.getSharedPreferences("kiddolock_app_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putInt("blacklist_version", 11)
+            .putStringSet(
+                "blacklisted_apps",
+                setOf(
+                    "com.google.android.apps.youtube.kids", // legacy block
+                    "com.instagram.android",                // default stays
+                ),
+            )
+            .apply()
+
+        val mgr = AppManager(context)
+        mgr.initialize()
+
+        assertFalse("V12 should unblock YouTube Kids",
+            mgr.isBlacklisted("com.google.android.apps.youtube.kids"))
+        assertTrue("other blocks preserved",
+            mgr.isBlacklisted("com.instagram.android"))
+    }
+
+    @Test
     fun freshInstall_doesNotBlockCoreSystem() {
         // Guard against over-blocking. Dialer, SystemUI, the app itself must
         // never be blocked by default or parents + children alike will get

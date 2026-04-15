@@ -65,7 +65,11 @@ class AppManager(private val context: Context) {
         // Google Services & Entertainment
         "com.google.android.googlequicksearchbox", // Google Search
         "com.google.android.youtube",
-        "com.google.android.apps.youtube.kids",
+        // NOTE: com.google.android.apps.youtube.kids is INTENTIONALLY NOT
+        // blocked at the app level — the accessibility content filter
+        // (ContentClassifier + SafeLockAccessibilityService) needs to see
+        // YouTube Kids windows so it can screen individual videos.
+        // Blocking it here would make the filter dead code.
 
         // Media & Files
         "com.google.android.apps.photos",
@@ -197,19 +201,26 @@ class AppManager(private val context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         blockingEnabled = true // Always enabled now that master switch is removed
 
-        // Fresh install detection: if neither the blacklist nor the version
-        // key exists, seed the FULL DEFAULT_BLACKLIST before running any
-        // migrations. Without this, V5-V10 below would save a partial list
-        // to prefs, the post-migration `savedBlacklist != null` branch
-        // would then skip the DEFAULT_BLACKLIST seed, and new users would
-        // silently end up with social-media / dating / AI apps unblocked.
+        // Load the user's saved blocklist (if any) BEFORE running migrations.
+        // Otherwise each migration's saveBlacklist() call would persist an
+        // in-memory set seeded only with that migration's additions — wiping
+        // out the parent's customizations and any earlier migrations' work.
         val isFreshInstall = !prefs.contains(KEY_BLACKLISTED_APPS) &&
             !prefs.contains("blacklist_version")
+        blacklistedApps.clear()
         if (isFreshInstall) {
-            blacklistedApps.clear()
+            // Fresh install: seed the FULL DEFAULT_BLACKLIST so new users
+            // actually get the social / dating / AI-chat categories blocked.
+            // (Previously, migrations saved a partial list first and the
+            // post-migration DEFAULT seed path was then skipped.)
             blacklistedApps.addAll(DEFAULT_BLACKLIST)
             saveBlacklist()
             Log.i(TAG, "Fresh install: seeded ${DEFAULT_BLACKLIST.size} default blocks")
+        } else {
+            prefs.getStringSet(KEY_BLACKLISTED_APPS, null)?.let {
+                blacklistedApps.addAll(it)
+            }
+            Log.i(TAG, "Upgrade path: loaded ${blacklistedApps.size} existing blocks")
         }
 
         // Migration: V5 (Expand blacklist with stores, YouTube, and Gallery)
@@ -222,7 +233,8 @@ class AppManager(private val context: Context) {
             blacklistedApps.add("com.xiaomi.mipicks")
             blacklistedApps.add("com.google.android.googlequicksearchbox")
             blacklistedApps.add("com.google.android.youtube")
-            blacklistedApps.add("com.google.android.apps.youtube.kids")
+            // YouTube Kids removed from V5 additions — V12 will clean it out
+            // for anyone who already installed. Content filter handles it.
             blacklistedApps.add("com.google.android.apps.photos")
             blacklistedApps.add("com.sec.android.gallery3d")
             blacklistedApps.add("com.google.android.apps.docs")
@@ -353,15 +365,21 @@ class AppManager(private val context: Context) {
             prefs.edit().putInt("blacklist_version", 11).apply()
             Log.i(TAG, "Migration V11: AI/payments/crypto/file-manager hardening")
         }
-        val savedBlacklist = prefs.getStringSet(KEY_BLACKLISTED_APPS, null)
-        blacklistedApps.clear()
-        if (savedBlacklist != null) {
-            blacklistedApps.addAll(savedBlacklist)
-        } else {
-            // First run or post-migration: use defaults
-            blacklistedApps.addAll(DEFAULT_BLACKLIST)
+
+        // V12 (YouTube Kids back to the content filter): the merge of
+        // SafeKids into SafeLock left YouTube Kids on the hard app-block
+        // list, so the accessibility content filter never got a chance to
+        // run. Removing it here lets the content filter do the job it was
+        // designed for. Regular YouTube (com.google.android.youtube) stays
+        // blocked because it carries unrestricted content the filter alone
+        // cannot keep safe.
+        if (blacklistVersion < 12) {
+            blacklistedApps.remove("com.google.android.apps.youtube.kids")
             saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 12).apply()
+            Log.i(TAG, "Migration V12: released YouTube Kids to content filter")
         }
+
 
         Log.i(TAG, "App Manager initialized: ${blacklistedApps.size} apps blacklisted, blocking=${blockingEnabled}")
     }

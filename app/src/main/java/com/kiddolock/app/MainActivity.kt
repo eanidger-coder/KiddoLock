@@ -61,29 +61,50 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, "MainActivity.onCreate: complete")
     }
 
+    // Guard to prevent starting the same redirect target twice from a single
+    // onResume — otherwise returning from another app (which fires onResume
+    // before the target activity has fully taken focus) can stack redirects
+    // and leave the user on a black screen.
+    private var isRedirectingAway = false
+
     override fun onResume() {
         Log.i(TAG, "MainActivity.onResume: start")
         super.onResume()
+
+        // Any earlier onResume that kicked off a redirect has either
+        // completed (we're back here) or was cancelled — reset the guard.
+        isRedirectingAway = false
+
         updateStatus()
 
         // === SINGLE CHECK: if critical permissions are missing → redirect to SetupActivity ===
         if (!PermissionUtils.isSetupComplete(this)) {
             Log.i(TAG, "MainActivity.onResume: setup NOT complete → launch SetupActivity")
-            startActivity(Intent(this, SetupActivity::class.java))
+            isRedirectingAway = true
+            startActivity(
+                Intent(this, SetupActivity::class.java).apply {
+                    // CLEAR_TOP + SINGLE_TOP stops us from re-stacking an
+                    // existing Setup instance on top of another one.
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+            )
             return
         }
         Log.i(TAG, "MainActivity.onResume: setup IS complete")
 
         // === PIN protection (only after setup is complete) ===
-        if (!AdminPinManager.isPinSet(this)) {
-            Log.i(TAG, "MainActivity.onResume: no PIN set → AdminPinActivity")
-            startActivity(Intent(this, AdminPinActivity::class.java))
-        } else if (!AdminPinManager.isAuthenticated()) {
-            Log.i(TAG, "MainActivity.onResume: PIN set but session expired → AdminPinActivity")
-            startActivity(Intent(this, AdminPinActivity::class.java))
-        } else {
-            Log.i(TAG, "MainActivity.onResume: PIN ok — showing main UI")
+        if (!AdminPinManager.isPinSet(this) || !AdminPinManager.isAuthenticated()) {
+            val reason = if (!AdminPinManager.isPinSet(this)) "no PIN set" else "session expired"
+            Log.i(TAG, "MainActivity.onResume: $reason → AdminPinActivity")
+            isRedirectingAway = true
+            startActivity(
+                Intent(this, AdminPinActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+            )
+            return
         }
+        Log.i(TAG, "MainActivity.onResume: PIN ok — showing main UI")
     }
 
     private fun initViews() {

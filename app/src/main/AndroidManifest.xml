@@ -75,7 +75,12 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.SafeLock">
+            <!-- singleTask avoids task-stack duplication when the user
+                 returns to SafeLock via launcher / recents — previously
+                 caused a "main screen frozen / black-screen on relaunch"
+                 bug because onResume kept stacking Setup/Pin activities. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
