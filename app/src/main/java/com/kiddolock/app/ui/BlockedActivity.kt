@@ -21,6 +21,7 @@ class BlockedActivity : AppCompatActivity() {
         setContentView(R.layout.activity_blocked)
 
         val blockedReason = intent.getStringExtra("blocked_reason") ?: "keyword"
+        val sourcePackage = intent.getStringExtra("blocked_source_package")
 
         val messageView = findViewById<TextView>(R.id.tvBlockMessage)
         messageView.text = when (blockedReason) {
@@ -30,15 +31,30 @@ class BlockedActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.btnBackToSafe).setOnClickListener {
-            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_HOME)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
+            // Return the child to YouTube's home/feed (NOT to the Android
+            // launcher). The AccessibilityService already pressed BACK on
+            // the player before we were shown, so YouTube's launcher intent
+            // lands them on the feed/search rather than on the blocked
+            // video.
+            val ytIntent = sourcePackage
+                ?.let { packageManager.getLaunchIntentForPackage(it) }
+                ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
+
             try {
-                startActivity(homeIntent)
+                if (ytIntent != null) {
+                    startActivity(ytIntent)
+                } else {
+                    // YouTube isn't installed (or we didn't receive a package) —
+                    // fall back to the launcher so the child isn't stranded.
+                    startActivity(
+                        Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_HOME)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                    )
+                }
             } catch (e: android.content.ActivityNotFoundException) {
-                // No launcher — extremely unusual but don't crash the child's device.
-                android.util.Log.e("BlockedActivity", "No home launcher available", e)
+                android.util.Log.e("BlockedActivity", "No target activity to return to", e)
             }
             finish()
         }

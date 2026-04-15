@@ -63,18 +63,13 @@ class SafeLockAccessibilityService : AccessibilityService() {
     private val contentScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var lastContentScanTime = 0L
     private var lastBlockedTitle = ""
-    private var lastBlockAt = 0L
+    private var lastBlockedPackage = ""
 
     companion object {
         private const val TAG = "SafeLockService"
         private const val NAVIGATION_GUARD_MS = 1500L
         private const val USAGE_RECORD_INTERVAL_MS = 60_000L
         private const val CONTENT_DEBOUNCE_MS = 1200L
-        // After a block fires, suppress further YouTube content scans for this
-        // long. Without this, scrolling past a thumbnail with a flagged word
-        // re-triggers the block screen immediately — making YouTube unusable
-        // because the sidebar / search results keep pushing new text in.
-        private const val POST_BLOCK_COOLDOWN_MS = 60_000L
 
         private val YOUTUBE_PACKAGES = setOf(
             "com.google.android.apps.youtube.kids",
@@ -183,7 +178,7 @@ class SafeLockAccessibilityService : AccessibilityService() {
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
                 AccessibilityEvent.TYPE_VIEW_SCROLLED,
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> {
-                    maybeScanYouTubeContent()
+                    maybeScanYouTubeContent(packageName)
                 }
             }
         }
@@ -196,14 +191,9 @@ class SafeLockAccessibilityService : AccessibilityService() {
     // Content filter path
     // ---------------------------------------------------------------------
 
-    private fun maybeScanYouTubeContent() {
+    private fun maybeScanYouTubeContent(youtubePackage: String) {
         val now = System.currentTimeMillis()
         if (now - lastContentScanTime < CONTENT_DEBOUNCE_MS) return
-        // Post-block cooldown: once a block screen has shown, stop scanning
-        // until it expires. Sidebar thumbnails / search results shift the
-        // on-screen text constantly — without this the user sees the block
-        // overlay pop up again the moment they dismiss it.
-        if (now - lastBlockAt < POST_BLOCK_COOLDOWN_MS) return
         lastContentScanTime = now
 
         val rootNode = rootInActiveWindow ?: return
@@ -242,12 +232,26 @@ class SafeLockAccessibilityService : AccessibilityService() {
             contentScope.launch {
                 val escalation = escalationTracker.recordAndAnalyze(videoTitle, channelName, score)
                 val shouldBlock = score.isBlocked || channelBlocked || escalation.isEscalating
-                if (!shouldBlock) return@launch
-
                 val blockTitle = videoTitle.ifEmpty { classifyInput.take(50).trim() }
+
+                if (!shouldBlock) {
+                    // Child moved to a different (safe) video — clear the
+                    // dedup flag so if they navigate back to the previously
+                    // blocked one we re-trigger immediately instead of
+                    // letting them watch it.
+                    if (blockTitle.isNotEmpty() && blockTitle != lastBlockedTitle) {
+                        lastBlockedTitle = ""
+                    }
+                    return@launch
+                }
+
+                // Same video as the one we just blocked — block screen is
+                // already on top, nothing to do. This is cheap dedup, not
+                // a timed cooldown, so it expires the moment the child
+                // navigates anywhere else.
                 if (blockTitle == lastBlockedTitle) return@launch
                 lastBlockedTitle = blockTitle
-                lastBlockAt = System.currentTimeMillis()
+                lastBlockedPackage = youtubePackage
 
                 val reason = when {
                     channelBlocked -> "blacklist"
@@ -269,7 +273,17 @@ class SafeLockAccessibilityService : AccessibilityService() {
                     )
                 )
 
-                showContentBlockScreen(blockTitle, reason)
+                // Close the YouTube player *before* we show the block
+                // screen, so the violent video is not playing behind our
+                // overlay even for a split second. GLOBAL_ACTION_BACK
+                // pops the player and lands the user on the YouTube feed.
+                try {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                } catch (e: Exception) {
+                    Log.w(TAG, "performGlobalAction(BACK) failed: ${e.message}")
+                }
+
+                showContentBlockScreen(blockTitle, reason, youtubePackage)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error scanning YouTube content", e)
@@ -335,11 +349,15 @@ class SafeLockAccessibilityService : AccessibilityService() {
             .minByOrNull { it.length }
             .orEmpty()
 
-    private fun showContentBlockScreen(title: String, reason: String) {
+    private fun showContentBlockScreen(title: String, reason: String, youtubePackage: String) {
         val intent = Intent(applicationContext, BlockedActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra("blocked_title", title)
             putExtra("blocked_reason", reason)
+            // Carry the source package so the "back to safe videos" button
+            // re-launches YouTube (Kids) at its home/feed rather than
+            // dumping the child onto the Android launcher.
+            putExtra("blocked_source_package", youtubePackage)
         }
         startActivity(intent)
     }
