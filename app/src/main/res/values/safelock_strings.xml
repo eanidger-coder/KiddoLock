@@ -14,10 +14,17 @@
     <string name="content_filter_log">יומן חסימות</string>
     <string name="content_filter_add_keyword">הוסף מילת מפתח</string>
     <string name="content_filter_add_channel">הוסף ערוץ לחסימה</string>
+    <string name="content_filter_enabled">סינון תוכן פעיל</string>
+    <string name="content_filter_disabled">סינון תוכן כבוי</string>
+    <string name="content_filter_toggle_label">הפעל סינון אוטומטי של YouTube</string>
+    <string name="content_filter_blocks_count">חסימות עד כה: %1$d</string>
 
     <!-- Block Screen (SafeKids) -->
+    <string name="block_emoji">🛑</string>
     <string name="block_title">אופס! 🛑</string>
     <string name="block_message">הסרטון הזה לא מתאים לצפייה.\nבוא נמצא סרטון אחר! 🌟</string>
+    <string name="block_message_escalation">שמנו לב שהסרטונים הולכים\nולהיות פחות מתאימים.\nבוא נבחר משהו אחר! 🌈</string>
+    <string name="block_message_blacklist">הסרטון הזה נחסם על ידי ההורים.\nבוא נמצא סרטון יותר כיף! 🎈</string>
     <string name="block_btn_back">חזרה לסרטונים בטוחים</string>
     <string name="block_btn_parent">כניסת הורה</string>
 
