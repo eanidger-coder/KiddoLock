@@ -181,7 +181,7 @@
     <string name="pin_entry_exit_hint">החלק למעלה כדי לחזור הביתה</string>
     <string name="wrong_pin_shake_hint">PIN שגוי, נסה שוב</string>
     <string name="guide_title_accessibility">איך לאפשר חסימה?</string>
-    <string name="guide_desc_accessibility">⚠️ אם \'SafeLock\' מופיע כאפור ולא ניתן לבחירה:\n  פתח הגדרות → אפליקציות → SafeLock → תפריט ⋮ (שלוש נקודות) → \'אפשר הגדרות מוגבלות\'\n  (זוהי הגנת Android לאפליקציות מחוץ ל-Google Play)\n\nלאחר מכן:\n1. לחץ למטה כדי לעבור להגדרות הנגישות\n2. מצא את \'SafeLock\' ברשימת השירותים\n3. הפעל את המתג ל-\'פעיל\'</string>
+    <string name="guide_desc_accessibility">⚠️ אם \'SafeLock\' מופיע כאפור ולא ניתן לבחירה:\n  פתח הגדרות המכשיר → יישומים → רשימת כל היישומים → SafeLock → תפריט ⋮ (שלוש נקודות בפינה) → \'אפשר הגדרות מוגבלות\'\n  (זוהי הגנת Android 13+ לאפליקציות מחוץ ל-Google Play)\n\nלאחר מכן:\n1. לחץ למטה כדי לעבור להגדרות הנגישות\n2. מצא את \'SafeLock\' ברשימת השירותים\n3. הפעל את המתג ל-\'פעיל\'</string>
     <string name="guide_title_overlay">איך לאפשר תצוגה מעל אפליקציות?</string>
     <string name="guide_desc_overlay">1. מצא את \'SafeLock\' ברשימה\n2. הפעל את האפשרות \'תצוגה מעל אפליקציות אחרות\'</string>
     <string name="guide_title_admin">איך להפעיל הגנת הסרה?</string>
@@ -192,8 +192,8 @@
     <string name="guide_desc_usage">1. מצא את \'SafeLock\' ברשימה\n2. הפעל את המתג \'אפשר מעקב שימוש\'</string>
     <string name="setup_step_7_title">6. אימייל לשחזור</string>
     <string name="guide_btn_understood">הבנתי, המשך להגדרות</string>
-    <string name="guide_btn_open_app_info">SafeLock אפור? פתח פרטי אפליקציה</string>
-    <string name="guide_app_info_toast">לחץ על תפריט ⋮ בפינה → \'אפשר הגדרות מוגבלות\'</string>
+    <string name="guide_btn_open_app_info">SafeLock אפור? פתח רשימת יישומים</string>
+    <string name="guide_app_info_toast">מצא את SafeLock ברשימה → הקש עליו → תפריט ⋮ → \'אפשר הגדרות מוגבלות\'</string>
     <string name="btn_emergency_uninstall_parent">הסרת חירום של SafeLock</string>
     <string name="security_parent_pin_title">אבטחה וקוד הורים</string>
     <string name="change_pin_label">החלפת קוד הורים</string>

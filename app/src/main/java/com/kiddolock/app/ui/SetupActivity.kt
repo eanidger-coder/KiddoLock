@@ -138,7 +138,7 @@ class SetupActivity : AppCompatActivity() {
                 getString(R.string.guide_desc_accessibility),
                 R.drawable.guide_accessibility,
                 secondaryAction = if (showAppInfoShortcut) {
-                    { openAppInfoForRestrictedSettings() }
+                    { openAppsListForRestrictedSettings() }
                 } else null,
             ) {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -298,31 +298,46 @@ class SetupActivity : AppCompatActivity() {
     }
 
     /**
-     * Launches the system "App Info" page for SafeLock — the screen where the
-     * ⋮ overflow hosts the "Allow restricted settings" toggle on Android 13+.
-     * Shows a long toast telling the parent exactly where to tap next, since
-     * the OS itself gives no hint.
+     * Opens the system "Apps" list — the screen where the parent taps
+     * SafeLock and then reaches the ⋮ overflow that hosts the "Allow
+     * restricted settings" toggle on Android 13+.
+     *
+     * Important: we deliberately use ACTION_MANAGE_APPLICATIONS_SETTINGS
+     * (apps list) instead of ACTION_APPLICATION_DETAILS_SETTINGS. On many
+     * devices the ⋮ "Allow restricted settings" item is *only* reachable
+     * when the user navigated through Settings → Apps → [app], not when
+     * App Info was opened directly via a package URI intent.
+     *
+     * We fall back to APPLICATION_SETTINGS and then to generic SETTINGS
+     * so the parent is never left stranded on OEM skins that renamed or
+     * removed the primary screen.
      */
-    private fun openAppInfoForRestrictedSettings() {
-        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:$packageName")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    private fun openAppsListForRestrictedSettings() {
+        val fallbackIntents = listOf(
+            Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS),
+            Intent(Settings.ACTION_APPLICATION_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS),
+        )
+        for (intent in fallbackIntents) {
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            try {
+                startActivity(intent)
+                Toast.makeText(
+                    this,
+                    getString(R.string.guide_app_info_toast),
+                    Toast.LENGTH_LONG,
+                ).show()
+                return
+            } catch (_: android.content.ActivityNotFoundException) {
+                // try next fallback
+            }
         }
-        try {
-            startActivity(intent)
-            Toast.makeText(
-                this,
-                getString(R.string.guide_app_info_toast),
-                Toast.LENGTH_LONG,
-            ).show()
-        } catch (e: android.content.ActivityNotFoundException) {
-            Log.e(TAG, "App Info screen not available", e)
-            Toast.makeText(
-                this,
-                "לא ניתן לפתוח את מסך פרטי האפליקציה במכשיר הזה",
-                Toast.LENGTH_LONG,
-            ).show()
-        }
+        Log.e(TAG, "No Settings app exposed any of the expected app-list intents")
+        Toast.makeText(
+            this,
+            "לא הצלחנו לפתוח את הגדרות המכשיר — פתח ידנית: הגדרות → יישומים → SafeLock → ⋮",
+            Toast.LENGTH_LONG,
+        ).show()
     }
 
     private fun setSetupInProgress(inProgress: Boolean) {
