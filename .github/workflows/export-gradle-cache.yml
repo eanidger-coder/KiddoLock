@@ -1,10 +1,9 @@
 name: Export Gradle + Android SDK cache
 
-# One-shot bootstrap: downloads AGP + platform-35 on a GitHub runner (which
-# has dl.google.com access), tars them up, and uploads as an artifact. Used
-# to prime a sandboxed dev environment that can't reach Google's CDN.
-#
-# Trigger: manual (workflow_dispatch) only.
+# Primes an orphan branch `gradle-cache-snapshot` with the Gradle artifact
+# cache + Android SDK platform-35 + build-tools 35. Used to bootstrap a
+# sandboxed dev environment that can't reach dl.google.com directly; the
+# sandboxed agent fetches this branch and extracts it into $HOME/.gradle.
 
 on:
   workflow_dispatch:
@@ -17,6 +16,8 @@ on:
 jobs:
   export-cache:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to force-push the snapshot branch
     steps:
       - uses: actions/checkout@v4
 
@@ -32,27 +33,39 @@ jobs:
       - name: Prime Gradle cache
         run: |
           chmod +x ./gradlew
-          # Download all deps (AGP, kotlin plugin, libraries). Intentionally
-          # skip actual compilation to keep this fast — we just need the
-          # maven artifacts populated in ~/.gradle/caches.
+          # Fetch every dep the project touches. --write-locks would be
+          # cleaner but the project has no lockfile; this double-pass is
+          # a pragmatic substitute.
           ./gradlew --no-daemon help dependencies :app:dependencies || true
           ./gradlew --no-daemon :app:compileDebugKotlin --dry-run || true
+          ./gradlew --no-daemon :app:testDebugUnitTest --dry-run || true
 
-      - name: Package Gradle + SDK caches
+      - name: Package caches
         run: |
           set -eux
-          mkdir -p /tmp/cache-export
-          # Gradle artifact cache (AGP + Kotlin + everything)
-          tar -C "$HOME" -czf /tmp/cache-export/gradle-caches.tar.gz .gradle/caches
-          # Android SDK platforms + build-tools + platform-tools
-          tar -C "$ANDROID_HOME" -czf /tmp/cache-export/android-sdk.tar.gz \
+          mkdir -p /tmp/snapshot
+          tar -C "$HOME" -czf /tmp/snapshot/gradle-caches.tar.gz .gradle/caches
+          tar -C "$ANDROID_HOME" -czf /tmp/snapshot/android-sdk.tar.gz \
             platforms/android-35 \
             build-tools/35.0.0 \
             platform-tools
-          ls -lh /tmp/cache-export/
+          ls -lh /tmp/snapshot/
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: offline-cache
-          path: /tmp/cache-export/
-          retention-days: 7
+      - name: Publish to orphan branch
+        run: |
+          set -eux
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Fresh orphan branch each run — we never merge this into main, it
+          # only exists to ferry the tarballs to the sandboxed agent.
+          git worktree add --detach /tmp/snap
+          cd /tmp/snap
+          git checkout --orphan gradle-cache-snapshot
+          git rm -rf . 2>/dev/null || true
+          cp /tmp/snapshot/gradle-caches.tar.gz .
+          cp /tmp/snapshot/android-sdk.tar.gz .
+          echo "Primed by run ${{ github.run_id }} on ${{ github.sha }}" > INFO
+          git add gradle-caches.tar.gz android-sdk.tar.gz INFO
+          git commit -m "snapshot: gradle+sdk for sandbox bootstrap (run ${{ github.run_id }})"
+          git push --force origin gradle-cache-snapshot
