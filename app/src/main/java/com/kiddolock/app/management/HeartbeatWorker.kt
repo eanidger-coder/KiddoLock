@@ -96,7 +96,7 @@ class HeartbeatWorker(appContext: Context, params: WorkerParameters) :
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val expectedService = "com.kiddolock.app/com.kiddolock.app.services.KiddoLockAccessibilityService"
+        val expectedService = "com.kiddolock.app/com.kiddolock.app.services.SafeLockAccessibilityService"
         val enabledServices = android.provider.Settings.Secure.getString(
             applicationContext.contentResolver,
             android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES

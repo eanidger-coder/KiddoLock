@@ -13,7 +13,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.kiddolock.app.MainActivity
 import com.kiddolock.app.receivers.KiddoDeviceAdminReceiver
-import com.kiddolock.app.services.KiddoLockAccessibilityService
+import com.kiddolock.app.services.SafeLockAccessibilityService
 import android.Manifest
 import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
@@ -199,7 +199,7 @@ class SetupActivity : AppCompatActivity() {
         setStepStatus(imgOverlayStatus, cardOverlay, hasOverlay, tvOverlayAction)
 
         // Step 3: Accessibility
-        val hasAccessibility = isAccessibilityServiceEnabled(this, KiddoLockAccessibilityService::class.java)
+        val hasAccessibility = isAccessibilityServiceEnabled(this, SafeLockAccessibilityService::class.java)
         setStepStatus(imgAccessibilityStatus, cardAccessibility, hasAccessibility, tvAccessibilityAction)
 
         // Step 4: Device Admin

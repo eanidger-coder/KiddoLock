@@ -21,7 +21,7 @@ import com.kiddolock.app.management.AdminPinManager
 import com.kiddolock.app.management.AppBlockManager
 import com.kiddolock.app.management.AppUsageManager
 import com.kiddolock.app.receivers.KiddoDeviceAdminReceiver
-import com.kiddolock.app.services.KiddoLockAccessibilityService
+import com.kiddolock.app.services.SafeLockAccessibilityService
 import com.kiddolock.app.ui.AdminActivity
 import com.kiddolock.app.ui.AdminPinActivity
 import com.kiddolock.app.ui.SetupActivity
@@ -198,7 +198,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val expectedComponentName = ComponentName(this, KiddoLockAccessibilityService::class.java)
+        val expectedComponentName = ComponentName(this, SafeLockAccessibilityService::class.java)
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
         return enabledServices?.contains(expectedComponentName.flattenToString()) == true
     }
