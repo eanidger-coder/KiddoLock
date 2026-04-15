@@ -96,6 +96,46 @@ class AppManager(private val context: Context) {
         "org.telegram.messenger",
         "video.likee",
         "com.kwai.video",
+        "com.discord",
+        "com.viber.voip",
+        "com.whatsapp.w4b", // WhatsApp Business (regular WhatsApp is whitelisted for parents)
+
+        // AI chat (unrestricted content generation is risky for minors)
+        "com.openai.chatgpt",
+        "com.google.android.apps.bard", // Gemini
+        "ai.perplexity.app.android",
+        "com.anthropic.claude",
+        "com.microsoft.copilot",
+        "ai.character.app", // Character.AI
+
+        // Google Assistant / Google app (search + voice)
+        "com.google.android.apps.search",
+        "com.google.android.apps.googleassistant",
+
+        // Payments & Wallets (prevent unsupervised purchases)
+        "com.google.android.apps.walletnfcrel",
+        "com.paypal.android.p2pmobile",
+        "com.venmo",
+        "com.squareup.cash",
+        "com.revolut.app",
+
+        // Crypto exchanges (high-risk for minors)
+        "com.coinbase.android",
+        "com.binance.dev",
+        "com.kraken.trade",
+
+        // File managers (sideload & bypass risk)
+        "com.google.android.documentsui",
+        "com.android.documentsui",
+        "com.sec.android.app.myfiles",
+        "com.mi.android.globalFileexplorer",
+        "com.huawei.filemanager",
+
+        // More browsers (common leak paths)
+        "com.UCMobile.intl",
+        "com.android.browser",
+        "com.vivaldi.browser",
+        "org.mozilla.focus",
 
         // Content
         "com.imgur.mobile",
@@ -156,6 +196,21 @@ class AppManager(private val context: Context) {
     fun initialize() {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         blockingEnabled = true // Always enabled now that master switch is removed
+
+        // Fresh install detection: if neither the blacklist nor the version
+        // key exists, seed the FULL DEFAULT_BLACKLIST before running any
+        // migrations. Without this, V5-V10 below would save a partial list
+        // to prefs, the post-migration `savedBlacklist != null` branch
+        // would then skip the DEFAULT_BLACKLIST seed, and new users would
+        // silently end up with social-media / dating / AI apps unblocked.
+        val isFreshInstall = !prefs.contains(KEY_BLACKLISTED_APPS) &&
+            !prefs.contains("blacklist_version")
+        if (isFreshInstall) {
+            blacklistedApps.clear()
+            blacklistedApps.addAll(DEFAULT_BLACKLIST)
+            saveBlacklist()
+            Log.i(TAG, "Fresh install: seeded ${DEFAULT_BLACKLIST.size} default blocks")
+        }
 
         // Migration: V5 (Expand blacklist with stores, YouTube, and Gallery)
         val blacklistVersion = prefs.getInt("blacklist_version", 0)
@@ -249,6 +304,54 @@ class AppManager(private val context: Context) {
             saveBlacklist()
             prefs.edit().putInt("blacklist_version", 10).apply()
             Log.i(TAG, "Migration V10: Performed comprehensive Gallery & Media hardening")
+        }
+
+        // Migration: V11 (AI chat + payments/crypto + file managers + Assistant)
+        // These categories didn't exist / weren't risky when earlier defaults
+        // were drawn. Pushed here so upgraders get them without touching
+        // parents' custom allow-list.
+        if (blacklistVersion < 11) {
+            val v11 = listOf(
+                // AI chat
+                "com.openai.chatgpt",
+                "com.google.android.apps.bard",
+                "ai.perplexity.app.android",
+                "com.anthropic.claude",
+                "com.microsoft.copilot",
+                "ai.character.app",
+                // Google Assistant / Google app (search + voice)
+                "com.google.android.apps.search",
+                "com.google.android.apps.googleassistant",
+                // Payments & wallets
+                "com.google.android.apps.walletnfcrel",
+                "com.paypal.android.p2pmobile",
+                "com.venmo",
+                "com.squareup.cash",
+                "com.revolut.app",
+                // Crypto
+                "com.coinbase.android",
+                "com.binance.dev",
+                "com.kraken.trade",
+                // File managers (sideload risk)
+                "com.google.android.documentsui",
+                "com.android.documentsui",
+                "com.sec.android.app.myfiles",
+                "com.mi.android.globalFileexplorer",
+                "com.huawei.filemanager",
+                // More browsers
+                "com.UCMobile.intl",
+                "com.android.browser",
+                "com.vivaldi.browser",
+                "org.mozilla.focus",
+                // More social
+                "com.discord",
+                "com.viber.voip",
+                "com.whatsapp.w4b"
+            )
+            v11.forEach { blacklistedApps.add(it) }
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 11).apply()
+            Log.i(TAG, "Migration V11: AI/payments/crypto/file-manager hardening")
         }
         val savedBlacklist = prefs.getStringSet(KEY_BLACKLISTED_APPS, null)
         blacklistedApps.clear()
