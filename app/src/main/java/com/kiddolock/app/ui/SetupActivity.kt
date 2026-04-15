@@ -92,10 +92,48 @@ class SetupActivity : AppCompatActivity() {
         updateStatus()
     }
 
+    // Set when the parent just returned from Accessibility Settings. If
+    // the permission is still missing afterwards (typical outcome on
+    // Android 13+ for sideloaded apps) we proactively surface the
+    // restricted-settings remedy instead of waiting for them to re-open
+    // the guide.
+    private var triedAccessibilityThisSession = false
+
     override fun onResume() {
         Log.i(TAG, "SetupActivity.onResume")
         super.onResume()
         updateStatus()
+        maybeOfferRestrictedSettingsHelp()
+    }
+
+    /**
+     * Android 13+ specific: if the parent just left Accessibility Settings
+     * and the SafeLock service is still disabled, the most likely cause is
+     * that the OS greyed out the entry under "restricted settings"
+     * protection. Surface a one-tap prompt to the Apps list + ⋮ flow.
+     *
+     * Real-world device testing revealed a quirk: the ⋮ "Allow restricted
+     * settings" menu item only appears AFTER the parent has attempted to
+     * toggle the greyed SafeLock entry (which triggers the system
+     * "blocked for safety" dialog). So we only trigger this once, and
+     * phrase the toast/banner accordingly.
+     */
+    private fun maybeOfferRestrictedSettingsHelp() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (!triedAccessibilityThisSession) return
+        if (PermissionUtils.hasAccessibilityService(this)) return
+
+        triedAccessibilityThisSession = false // one-shot per return trip
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
+            .setTitle("SafeLock הופיע אפור?")
+            .setMessage(
+                "Android 13+ חוסם שירותי נגישות לאפליקציות שהותקנו מחוץ ל-Google Play.\n\n" +
+                "אם לחצת על SafeLock האפור וראית הודעה על חסימת בטיחות — מצוין, זה השלב הראשון.\n\n" +
+                "עכשיו נפתח את רשימת היישומים כדי לאשר הגדרות מוגבלות: SafeLock → ⋮ → \"אפשר הגדרות מוגבלות\"."
+            )
+            .setPositiveButton("פתח רשימת יישומים") { _, _ -> openAppsListForRestrictedSettings() }
+            .setNegativeButton("סגור", null)
+            .show()
     }
 
     private fun setupListeners() {
@@ -141,6 +179,10 @@ class SetupActivity : AppCompatActivity() {
                     { openAppsListForRestrictedSettings() }
                 } else null,
             ) {
+                // Mark that we're leaving for Accessibility — if SafeLock is
+                // still not enabled when we come back, onResume() will
+                // proactively offer the restricted-settings remedy.
+                triedAccessibilityThisSession = true
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 Toast.makeText(this, "מצא את SafeLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
             }
