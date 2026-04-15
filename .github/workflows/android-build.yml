@@ -65,14 +65,12 @@ jobs:
   instrumented:
     name: UI tests on emulator (API 33)
     runs-on: ubuntu-latest
-    # Gated to manual runs + main-branch pushes + PRs targeting main, to stop
-    # every feature-branch push from dragging an ~20min emulator job with it.
     # Authoritative coverage is the `build` job (JVM unit tests) above;
-    # Espresso here is a smoke aid for release candidates.
+    # Espresso here is a smoke aid for release candidates and feature branches
+    # where we need visual/emulator-level proof the app runs end-to-end.
     #
-    # Keep `continue-on-error` so even when this does run, an emulator hiccup
-    # never blocks shipping.
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    # Keep `continue-on-error` so an emulator hiccup never blocks shipping.
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
     needs: build
     continue-on-error: true
     timeout-minutes: 45
@@ -111,7 +109,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Run instrumented tests on emulator
+      - name: Run instrumented tests + capture live screenshots
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
@@ -123,7 +121,39 @@ jobs:
           # Animations left on are the #1 cause of Espresso flakes on emulator.
           disable-animations: true
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -camera-back none -gpu swiftshader_indirect
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+          script: |
+            set -e
+            mkdir -p screenshots
+
+            # 1. Run the full instrumented-test suite (includes the new
+            #    EmergencyUninstallNotificationTest which verifies the PIN-gated
+            #    uninstall action exists on the ongoing notification).
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace || TEST_FAILED=$?
+
+            # 2. Capture live proof the APK installs and launches on a real
+            #    Android image. Screenshots are uploaded as an artifact so the
+            #    change can be verified visually without a local emulator.
+            PKG=com.kiddolock.app
+
+            # App was installed by the test run. Launch the main activity.
+            adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 || true
+            sleep 4
+            adb shell screencap -p /sdcard/01_launch.png && adb pull /sdcard/01_launch.png screenshots/
+
+            # Pull the notification shade down to expose the ongoing notification
+            # and its new "הסרת חירום" action button.
+            adb shell cmd statusbar expand-notifications || true
+            sleep 2
+            adb shell screencap -p /sdcard/02_notification_shade.png && adb pull /sdcard/02_notification_shade.png screenshots/
+            adb shell cmd statusbar collapse || true
+
+            # Dump the active notifications — irrefutable textual proof the
+            # uninstall action is attached to the ongoing notification.
+            adb shell dumpsys notification --noredact > screenshots/notification_dump.txt || true
+
+            if [ -n "$TEST_FAILED" ]; then
+              exit $TEST_FAILED
+            fi
 
       - name: Upload instrumented-test report
         if: always()
@@ -131,4 +161,12 @@ jobs:
         with:
           name: instrumented-test-report
           path: app/build/reports/androidTests/connected
+          if-no-files-found: ignore
+
+      - name: Upload live-emulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-screenshots
+          path: screenshots
           if-no-files-found: ignore
