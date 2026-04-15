@@ -34,7 +34,12 @@ class BlockedActivity : AppCompatActivity() {
                 addCategory(Intent.CATEGORY_HOME)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
-            startActivity(homeIntent)
+            try {
+                startActivity(homeIntent)
+            } catch (e: android.content.ActivityNotFoundException) {
+                // No launcher — extremely unusual but don't crash the child's device.
+                android.util.Log.e("BlockedActivity", "No home launcher available", e)
+            }
             finish()
         }
 

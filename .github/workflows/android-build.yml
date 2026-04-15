@@ -116,6 +116,9 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disk-size: 6000M
+          # Animations left on are the #1 cause of Espresso flakes on emulator.
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -camera-back none -gpu swiftshader_indirect
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
 
       - name: Upload instrumented-test report

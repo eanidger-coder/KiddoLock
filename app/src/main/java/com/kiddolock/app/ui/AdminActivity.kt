@@ -32,6 +32,7 @@ import com.kiddolock.app.receivers.PolicyManager
 import com.kiddolock.app.services.TimeScheduler
 import com.kiddolock.app.management.SettingsSyncManager
 import com.kiddolock.app.utils.Prefs
+import com.kiddolock.app.utils.PermissionUtils
 import com.kiddolock.app.ui.adapter.AppListAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -306,7 +307,21 @@ class AdminActivity : AppCompatActivity() {
                 val intent = Intent(Intent.ACTION_DELETE)
                 intent.data = Uri.parse("package:$packageName")
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                startActivity(intent)
+                try {
+                    startActivity(intent)
+                } catch (e: android.content.ActivityNotFoundException) {
+                    // No package installer on this device — fall back to app details
+                    // so the parent can uninstall manually.
+                    Log.e("AdminActivity", "No uninstall handler available", e)
+                    Toast.makeText(this, "פתח את הגדרות המכשיר כדי להסיר את SafeLock", Toast.LENGTH_LONG).show()
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                .setData(Uri.parse("package:$packageName"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: Exception) { /* nothing more we can do */ }
+                }
 
                 finish()
             }
@@ -352,9 +367,12 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val service = "$packageName/${com.kiddolock.app.services.SafeLockAccessibilityService::class.java.name}"
-        val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        return enabledServices?.contains(service) == true
+        // Routes through the centralized, robust parser.
+        // Previously this had its own String.contains(...) fork — the *same*
+        // fragile check that caused the "stuck after setup" loop between
+        // MainActivity ↔ SetupActivity. All a11y checks MUST funnel through
+        // PermissionUtils so the answer is consistent across screens.
+        return PermissionUtils.hasAccessibilityService(this)
     }
 
     private fun isUsageAccessEnabled(): Boolean {
