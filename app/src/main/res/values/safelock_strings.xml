@@ -19,6 +19,17 @@
     <string name="content_filter_toggle_label">הפעל סינון אוטומטי של YouTube</string>
     <string name="content_filter_blocks_count">חסימות עד כה: %1$d</string>
     <string name="content_filter_remove_confirm">להסיר את \"%1$s\" מהרשימה?</string>
+    <string name="content_filter_defaults_title">מילות ברירת מחדל</string>
+    <string name="content_filter_defaults_subtitle">לחצו על מילה כדי להחריג אותה מהחסימה (הסימון ✓ = חסומה, ✗ = מותרת)</string>
+    <string name="content_filter_category_violence_physical">אלימות פיזית</string>
+    <string name="content_filter_category_violence_verbal">אלימות מילולית</string>
+    <string name="content_filter_category_horror_kids">אימה לילדים</string>
+    <string name="content_filter_category_elsagate">תוכן מטעה</string>
+    <string name="content_filter_category_weapons">נשק</string>
+    <string name="content_filter_category_dark_themes">נושאים אפלים</string>
+    <string name="content_filter_category_violent_shows">תוכניות אלימות</string>
+    <string name="content_filter_defaults_expand">הצג</string>
+    <string name="content_filter_defaults_collapse">הסתר</string>
 
     <!-- Block Screen (SafeKids) -->
     <string name="block_emoji">🛑</string>

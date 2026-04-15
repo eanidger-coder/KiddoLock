@@ -36,6 +36,12 @@ class ContentClassifier {
     // Custom keywords added by parents
     private val customBlacklist = mutableSetOf<String>()
 
+    // Built-in keywords the parent has explicitly marked "allow". Matches
+    // against any of these are skipped so the parent can un-block a default
+    // that was producing false positives (e.g. "battle" breaking Pokémon
+    // content). Lowercase + trimmed on insert.
+    private val allowedOverrides = mutableSetOf<String>()
+
     private val keywordDatabase: Map<Category, List<String>> = mapOf(
         Category.VIOLENCE_PHYSICAL to listOf(
             // English
@@ -150,7 +156,8 @@ class ContentClassifier {
 
         for ((category, keywords) in keywordDatabase) {
             val matched = keywords.filter { keyword ->
-                normalizedText.contains(keyword.lowercase())
+                val lower = keyword.lowercase()
+                lower !in allowedOverrides && normalizedText.contains(lower)
             }
             if (matched.isNotEmpty()) {
                 val baseScore = if (category.weight >= 0.9f) 0.8f else category.weight
@@ -167,7 +174,8 @@ class ContentClassifier {
         }
 
         val showMatches = violentShows.filter { show ->
-            normalizedText.contains(show.lowercase())
+            val lower = show.lowercase()
+            lower !in allowedOverrides && normalizedText.contains(lower)
         }
         if (showMatches.isNotEmpty()) {
             categoryMatches.add(
@@ -207,9 +215,25 @@ class ContentClassifier {
         customBlacklist.addAll(keywords.map { it.lowercase() })
     }
 
+    fun updateAllowedOverrides(words: Set<String>) {
+        allowedOverrides.clear()
+        allowedOverrides.addAll(words.map { it.lowercase().trim() })
+    }
+
     fun setSensitivity(level: SensitivityLevel) {
         blockThreshold = level.threshold
     }
+
+    /**
+     * Read-only view of the built-in keyword database grouped by category.
+     * Used by the parent-facing content-filter UI to show which default
+     * keywords are in force and let the parent mark any of them as
+     * "allow" (override) via [updateAllowedOverrides].
+     */
+    fun defaultKeywords(): Map<Category, List<String>> = keywordDatabase
+
+    /** Read-only view of the built-in "violent shows" phrase list. */
+    fun defaultViolentShows(): List<String> = violentShows
 
     enum class SensitivityLevel(val threshold: Float, val labelHe: String) {
         STRICT(0.3f, "קפדני"),

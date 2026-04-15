@@ -2,6 +2,8 @@ package com.kiddolock.app.ui
 
 import android.app.AlertDialog
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioGroup
@@ -48,6 +50,103 @@ class ContentFilterActivity : AppCompatActivity() {
         bindChannelsList()
         bindKeywordsList()
         bindAddButtons()
+        bindDefaultKeywords()
+    }
+
+    /**
+     * Render the hard-coded keyword database so the parent can review every
+     * built-in word and un-block individual items (e.g. "battle" when the
+     * child is watching Pokémon). Toggling a word writes to
+     * [ContentPreferences.allowedOverrides]; [ContentClassifier] skips
+     * anything present in that set at classify time.
+     */
+    private fun bindDefaultKeywords() {
+        val container = findViewById<LinearLayout>(R.id.listDefaults) ?: return
+        container.removeAllViews()
+
+        val classifier = ContentClassifier()
+        val defaults: List<Pair<String, List<String>>> =
+            classifier.defaultKeywords().map { (cat, words) ->
+                categoryLabel(cat) to words
+            } + listOf(
+                getString(R.string.content_filter_category_violent_shows) to classifier.defaultViolentShows()
+            )
+
+        defaults.forEach { (title, words) ->
+            container.addView(buildCategorySection(title, words))
+        }
+    }
+
+    private fun categoryLabel(category: ContentClassifier.Category): String = when (category) {
+        ContentClassifier.Category.VIOLENCE_PHYSICAL ->
+            getString(R.string.content_filter_category_violence_physical)
+        ContentClassifier.Category.VIOLENCE_VERBAL ->
+            getString(R.string.content_filter_category_violence_verbal)
+        ContentClassifier.Category.HORROR_KIDS ->
+            getString(R.string.content_filter_category_horror_kids)
+        ContentClassifier.Category.ELSAGATE ->
+            getString(R.string.content_filter_category_elsagate)
+        ContentClassifier.Category.WEAPONS ->
+            getString(R.string.content_filter_category_weapons)
+        ContentClassifier.Category.DARK_THEMES ->
+            getString(R.string.content_filter_category_dark_themes)
+    }
+
+    private fun buildCategorySection(title: String, words: List<String>): View {
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 16 }
+        }
+
+        val header = TextView(this).apply {
+            text = "▸  $title  (${words.size})"
+            textSize = 16f
+            setTextColor(getColor(R.color.safelock_text_primary))
+            setPadding(8, 12, 8, 12)
+        }
+        wrap.addView(header)
+
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(8, 0, 8, 0)
+        }
+        words.forEach { word -> body.addView(buildWordRow(word)) }
+        wrap.addView(body)
+
+        header.setOnClickListener {
+            val collapsed = body.visibility == View.GONE
+            body.visibility = if (collapsed) View.VISIBLE else View.GONE
+            header.text = (if (collapsed) "▾  " else "▸  ") + title + "  (${words.size})"
+        }
+        return wrap
+    }
+
+    private fun buildWordRow(word: String): View {
+        val row = TextView(this).apply {
+            textSize = 15f
+            setPadding(24, 10, 24, 10)
+            gravity = Gravity.START
+        }
+        applyWordRowState(row, word)
+        row.setOnClickListener {
+            val current = prefs.allowedOverrides
+            val key = word.lowercase().trim()
+            prefs.allowedOverrides = if (key in current) current - key else current + key
+            applyWordRowState(row, word)
+        }
+        return row
+    }
+
+    private fun applyWordRowState(row: TextView, word: String) {
+        val allowed = word.lowercase().trim() in prefs.allowedOverrides
+        row.text = if (allowed) "✗  $word  (מותר)" else "✓  $word  (חסום)"
+        row.setTextColor(
+            getColor(if (allowed) R.color.safelock_text_secondary else R.color.safelock_text_primary)
+        )
     }
 
     private fun bindToggle() {

@@ -18,7 +18,22 @@ class ContentPreferences(context: Context) {
         private const val KEY_ENABLED = "content_filter_enabled"
         private const val KEY_SENSITIVITY = "sensitivity_level"
         private const val KEY_BLOCK_COUNT = "lifetime_block_count"
+        private const val KEY_ALLOWED_OVERRIDES = "allowed_overrides"
     }
+
+    /**
+     * Built-in keywords the parent has chosen to un-block. We ship a
+     * hard-coded default list inside ContentClassifier; for anything on
+     * that list the only way to "remove" it is to mark it as allowed here,
+     * and the classifier will then ignore it. Case-insensitive, stored
+     * lowercased.
+     */
+    var allowedOverrides: Set<String>
+        get() = prefs.getStringSet(KEY_ALLOWED_OVERRIDES, emptySet())!!.toSet()
+        set(value) =
+            prefs.edit()
+                .putStringSet(KEY_ALLOWED_OVERRIDES, value.map { it.lowercase().trim() }.toSet())
+                .apply()
 
     /** When true the AccessibilityService scans YouTube (Kids) for violence. */
     var contentFilterEnabled: Boolean

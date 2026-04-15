@@ -63,12 +63,18 @@ class SafeLockAccessibilityService : AccessibilityService() {
     private val contentScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var lastContentScanTime = 0L
     private var lastBlockedTitle = ""
+    private var lastBlockAt = 0L
 
     companion object {
         private const val TAG = "SafeLockService"
         private const val NAVIGATION_GUARD_MS = 1500L
         private const val USAGE_RECORD_INTERVAL_MS = 60_000L
         private const val CONTENT_DEBOUNCE_MS = 1200L
+        // After a block fires, suppress further YouTube content scans for this
+        // long. Without this, scrolling past a thumbnail with a flagged word
+        // re-triggers the block screen immediately — making YouTube unusable
+        // because the sidebar / search results keep pushing new text in.
+        private const val POST_BLOCK_COOLDOWN_MS = 60_000L
 
         private val YOUTUBE_PACKAGES = setOf(
             "com.google.android.apps.youtube.kids",
@@ -131,6 +137,7 @@ class SafeLockAccessibilityService : AccessibilityService() {
 
             classifier = ContentClassifier().apply {
                 setSensitivity(contentPrefs.sensitivityLevel)
+                updateAllowedOverrides(contentPrefs.allowedOverrides)
             }
             channelAnalyzer = ChannelAnalyzer(db.blacklistDao())
             escalationTracker = EscalationTracker(db.sessionDao())
@@ -192,6 +199,11 @@ class SafeLockAccessibilityService : AccessibilityService() {
     private fun maybeScanYouTubeContent() {
         val now = System.currentTimeMillis()
         if (now - lastContentScanTime < CONTENT_DEBOUNCE_MS) return
+        // Post-block cooldown: once a block screen has shown, stop scanning
+        // until it expires. Sidebar thumbnails / search results shift the
+        // on-screen text constantly — without this the user sees the block
+        // overlay pop up again the moment they dismiss it.
+        if (now - lastBlockAt < POST_BLOCK_COOLDOWN_MS) return
         lastContentScanTime = now
 
         val rootNode = rootInActiveWindow ?: return
@@ -202,13 +214,29 @@ class SafeLockAccessibilityService : AccessibilityService() {
             val channelCandidates = mutableListOf<String>()
             extractContent(rootNode, allText, titleCandidates, channelCandidates, depth = 0)
 
-            val screenText = allText.toString()
-            if (screenText.isBlank()) return
-
             val videoTitle = pickBestTitle(titleCandidates)
             val channelName = pickBestChannel(channelCandidates)
 
-            val score = classifier.classify(screenText)
+            // We only classify the active video's title + channel. Previously
+            // we fed the entire screen-dump to the classifier, which matched on
+            // thumbnail titles, sidebar suggestions and search-result names —
+            // triggering the block screen on videos the child was not actually
+            // watching. Narrowing the input to the one "current" title/channel
+            // produced by the heuristic pickers makes the filter accurate
+            // instead of a carpet-bomb.
+            val classifyInput = buildString {
+                if (videoTitle.isNotEmpty()) append(videoTitle).append(' ')
+                if (channelName.isNotEmpty()) append(channelName)
+            }.trim()
+            if (classifyInput.isBlank()) return
+
+            // Pick up live changes the parent made in ContentFilterActivity
+            // (sensitivity + allowed-overrides). These reads hit the in-memory
+            // SharedPreferences cache so they're cheap on the scanning hot path.
+            classifier.setSensitivity(contentPrefs.sensitivityLevel)
+            classifier.updateAllowedOverrides(contentPrefs.allowedOverrides)
+
+            val score = classifier.classify(classifyInput)
             val channelBlocked = channelName.isNotEmpty() && channelAnalyzer.isBlacklisted(channelName)
 
             contentScope.launch {
@@ -216,9 +244,10 @@ class SafeLockAccessibilityService : AccessibilityService() {
                 val shouldBlock = score.isBlocked || channelBlocked || escalation.isEscalating
                 if (!shouldBlock) return@launch
 
-                val blockTitle = videoTitle.ifEmpty { screenText.take(50).trim() }
+                val blockTitle = videoTitle.ifEmpty { classifyInput.take(50).trim() }
                 if (blockTitle == lastBlockedTitle) return@launch
                 lastBlockedTitle = blockTitle
+                lastBlockAt = System.currentTimeMillis()
 
                 val reason = when {
                     channelBlocked -> "blacklist"

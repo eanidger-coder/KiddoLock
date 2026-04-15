@@ -108,6 +108,35 @@ class ContentClassifierTest {
     }
 
     @Test
+    fun allowedOverridesSkipBuiltInKeywords() {
+        // "battle" is in VIOLENCE_PHYSICAL by default. Pokémon content uses
+        // the word constantly — without an override the filter would carpet-
+        // block it. Marking "battle" as allowed must cause the classifier to
+        // ignore that keyword while still flagging other violent words.
+        val before = classifier.classify("Pokémon battle")
+        assertTrue("baseline: 'battle' alone should still trigger", before.isBlocked)
+
+        classifier.updateAllowedOverrides(setOf("battle"))
+        val after = classifier.classify("Pokémon battle")
+        assertFalse("'battle' must be ignored when in allowedOverrides", after.isBlocked)
+
+        // Other violent words must still trigger even after the override.
+        val stillBlocks = classifier.classify("fight punch kick")
+        assertTrue("non-overridden words must still block", stillBlocks.isBlocked)
+    }
+
+    @Test
+    fun defaultKeywordsExposesEveryBuiltInCategory() {
+        val map = classifier.defaultKeywords()
+        ContentClassifier.Category.values().forEach { cat ->
+            assertTrue("category $cat must be present", map.containsKey(cat))
+            assertTrue("category $cat must not be empty", map[cat]!!.isNotEmpty())
+        }
+        assertTrue("violent-shows list must be exposed",
+            classifier.defaultViolentShows().isNotEmpty())
+    }
+
+    @Test
     fun totalScoreIsCappedAtOneForNonCustomMatches() {
         val result = classifier.classify(
             "fight punch kick attack kill murder blood battle war combat"

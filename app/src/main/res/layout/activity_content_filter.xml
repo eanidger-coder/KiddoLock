@@ -175,6 +175,47 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Defaults card: built-in keyword list, toggle per word -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardBackgroundColor="@color/safelock_glass_background"
+            app:cardCornerRadius="20dp"
+            app:strokeColor="@color/safelock_glass_outline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/content_filter_defaults_title"
+                    android:textColor="@color/safelock_text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/content_filter_defaults_subtitle"
+                    android:textColor="@color/safelock_text_secondary"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/listDefaults"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Keywords card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
