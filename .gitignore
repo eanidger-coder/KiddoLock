@@ -25,6 +25,8 @@ local.properties
 *.png.flat
 *.dex
 *.jar
+# Keep the Gradle wrapper jar (required by ./gradlew in CI)
+!gradle/wrapper/gradle-wrapper.jar
 after_pin.xml
 before_pin.xml
 admin.xml
