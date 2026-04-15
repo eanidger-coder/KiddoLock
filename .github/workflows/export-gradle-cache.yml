@@ -8,6 +8,11 @@ name: Export Gradle + Android SDK cache
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - claude/merge-parental-control-apps-J5v8S
+    paths:
+      - '.github/workflows/export-gradle-cache.yml'
 
 jobs:
   export-cache:
