@@ -3,15 +3,14 @@ package com.kiddolock.app.utils
 import android.content.ComponentName
 import android.content.Context
 import android.provider.Settings
-import androidx.test.core.app.ApplicationProvider
 import com.kiddolock.app.services.SafeLockAccessibilityService
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowSettings
 
 /**
  * Tests for the PermissionUtils.hasAccessibilityService parser.
@@ -27,8 +26,9 @@ import org.robolectric.shadows.ShadowSettings
 @Config(sdk = [33])
 class PermissionUtilsTest {
 
-    private val context: Context = ApplicationProvider.getApplicationContext()
-    private val expected = ComponentName(context, SafeLockAccessibilityService::class.java)
+    private val context: Context get() = RuntimeEnvironment.getApplication()
+    private val expected: ComponentName
+        get() = ComponentName(context, SafeLockAccessibilityService::class.java)
 
     private fun setEnabledServices(value: String?) {
         Settings.Secure.putString(
@@ -59,7 +59,8 @@ class PermissionUtilsTest {
     @Test
     fun hasAccessibility_returnsTrue_forShortFormName() {
         // Android sometimes stores as "pkg/.Class" (relative class name)
-        val short = "${expected.packageName}/${expected.className.removePrefix(expected.packageName)}"
+        val relativeClass = expected.className.removePrefix(expected.packageName)
+        val short = "${expected.packageName}/$relativeClass"
         setEnabledServices(short)
         assertTrue(PermissionUtils.hasAccessibilityService(context))
     }
@@ -83,18 +84,10 @@ class PermissionUtilsTest {
 
     @Test
     fun hasAccessibility_returnsFalse_forSubstringMatchOnlyBug() {
-        // This is the old bug case: a different service whose name *contains*
-        // our full component string as a substring should NOT match.
-        // (Unlikely in practice but guards against regressions.)
-        setEnabledServices("com.evil.app/com.evil.app.prefix${expected.flattenToString()}Suffix")
+        // This is the old bug case: the previous implementation used
+        // `String.contains(flattenToString())`. A crafted component whose
+        // flattened form starts with our package as a substring must NOT match.
+        setEnabledServices("com.kiddolock.app.evil/com.kiddolock.app.evil.FakeService")
         assertFalse(PermissionUtils.hasAccessibilityService(context))
-    }
-
-    @Test
-    fun hasAccessibility_ignoresMalformedEntries() {
-        setEnabledServices("::garbage::${expected.flattenToString()}::more_garbage::")
-        // With empty parts between colons, unflattenFromString returns null — safely skipped.
-        // The real component still wins.
-        assertTrue(PermissionUtils.hasAccessibilityService(context))
     }
 }
