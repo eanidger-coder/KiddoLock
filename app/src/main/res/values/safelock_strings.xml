@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SafeLock rebrand override: app_name redefinition handled in main strings.xml -->
+
+    <!-- ===== SafeKids content filter strings (merged) ===== -->
+    <string name="content_filter_title">סינון תוכן יוטיוב</string>
+    <string name="content_filter_subtitle">הגנה חכמה מתוכן אלים בערוצי הילדים</string>
+    <string name="content_filter_sensitivity">רגישות סינון</string>
+    <string name="sensitivity_strict">קפדני</string>
+    <string name="sensitivity_balanced">מאוזן</string>
+    <string name="sensitivity_relaxed">מרוכך</string>
+    <string name="content_filter_keywords">מילות מפתח חסומות</string>
+    <string name="content_filter_channels">ערוצים חסומים</string>
+    <string name="content_filter_log">יומן חסימות</string>
+    <string name="content_filter_add_keyword">הוסף מילת מפתח</string>
+    <string name="content_filter_add_channel">הוסף ערוץ לחסימה</string>
+
+    <!-- Block Screen (SafeKids) -->
+    <string name="block_title">אופס! 🛑</string>
+    <string name="block_message">הסרטון הזה לא מתאים לצפייה.\nבוא נמצא סרטון אחר! 🌟</string>
+    <string name="block_btn_back">חזרה לסרטונים בטוחים</string>
+    <string name="block_btn_parent">כניסת הורה</string>
+
+    <!-- Scanner status -->
+    <string name="scanner_status_scanning">סורק תוכן ביוטיוב...</string>
+    <string name="scanner_status_idle">ממתין לפתיחת יוטיוב קידס</string>
+    <string name="scanner_status_active">ההגנה פעילה וסורקת ✓</string>
+    <string name="scanner_status_inactive">אזהרה: ההגנה כבויה ✗</string>
+
+    <!-- SafeLock branding -->
+    <string name="app_tagline">הגנה חכמה לילדים</string>
+    <string name="app_description">SafeLock משלב בקרת אפליקציות, מגבלות זמן מסך וסינון תוכן יוטיוב במערכת אחת.</string>
+    <string name="feature_apps_title">בקרת אפליקציות</string>
+    <string name="feature_apps_desc">חסום אפליקציות וקבע מגבלות זמן</string>
+    <string name="feature_time_title">זמן מסך</string>
+    <string name="feature_time_desc">שעות שינה ומגבלות יומיות</string>
+    <string name="feature_content_title">סינון תוכן</string>
+    <string name="feature_content_desc">זיהוי תוכן אלים בערוצי יוטיוב לילדים</string>
+    <string name="feature_insights_title">תובנות</string>
+    <string name="feature_insights_desc">דוחות שבועיים ופעילות</string>
+
+    <!-- Block reasons (YouTube content) -->
+    <string name="block_reason_keyword">זוהו מילות מפתח בעייתיות (%1$d)</string>
+    <string name="block_reason_escalation">זוהה דפוס הסלמה בתוכן</string>
+    <string name="block_reason_channel">הערוץ מסומן ברשימה השחורה</string>
+    <string name="block_reason_combined">שילוב של גורמי סיכון</string>
+</resources>
