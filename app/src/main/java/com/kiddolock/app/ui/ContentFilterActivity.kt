@@ -19,7 +19,6 @@ import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * ContentFilterActivity — parent-facing screen for configuring the SafeKids
@@ -88,7 +87,7 @@ class ContentFilterActivity : AppCompatActivity() {
             dao.getAllChannels().collectLatest { channels ->
                 container.removeAllViews()
                 channels.forEach { channel ->
-                    container.addView(rowView(channel.name) {
+                    container.addView(rowView(channel.channelName) {
                         lifecycleScope.launch(Dispatchers.IO) { dao.deleteChannel(channel) }
                     })
                 }
@@ -103,7 +102,7 @@ class ContentFilterActivity : AppCompatActivity() {
             dao.getAllKeywords().collectLatest { keywords ->
                 container.removeAllViews()
                 keywords.forEach { keyword ->
-                    container.addView(rowView(keyword.term) {
+                    container.addView(rowView(keyword.keyword) {
                         lifecycleScope.launch(Dispatchers.IO) { dao.deleteKeyword(keyword) }
                     })
                 }
@@ -133,7 +132,7 @@ class ContentFilterActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnAddChannel).setOnClickListener {
             promptForText(getString(R.string.content_filter_add_channel)) { value ->
                 lifecycleScope.launch(Dispatchers.IO) {
-                    dao.insertChannel(BlacklistedChannel(name = value))
+                    dao.insertChannel(BlacklistedChannel(channelName = value))
                 }
             }
         }
@@ -141,7 +140,7 @@ class ContentFilterActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnAddKeyword).setOnClickListener {
             promptForText(getString(R.string.content_filter_add_keyword)) { value ->
                 lifecycleScope.launch(Dispatchers.IO) {
-                    dao.insertKeyword(BlacklistedKeyword(term = value))
+                    dao.insertKeyword(BlacklistedKeyword(keyword = value))
                 }
             }
         }
