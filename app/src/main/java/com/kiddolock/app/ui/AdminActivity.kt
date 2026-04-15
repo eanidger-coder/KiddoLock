@@ -38,12 +38,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class AdminActivity : AppCompatActivity() {
-    
+
     companion object {
         // Flag to tracking if the parent has verified their PIN for this session
         // This is static so it survives while the app process is alive
         var isSessionAuthorized = false
-        
+
         fun resetSession() {
             isSessionAuthorized = false
         }
@@ -53,16 +53,16 @@ class AdminActivity : AppCompatActivity() {
     private lateinit var kidsModeManager: KidsModeManager
     private lateinit var timeScheduler: TimeScheduler
     private lateinit var appListAdapter: AppListAdapter
-    
+
     private lateinit var tvVersion: TextView
     private lateinit var etSearch: EditText
     private lateinit var rvApps: RecyclerView
     private lateinit var pbLoading: ProgressBar
 
-    
+
     private lateinit var cardProtectionStatus: com.google.android.material.card.MaterialCardView
     private lateinit var viewStatusDot: View
-    
+
     // Time views
     private lateinit var tvBedtimeValue: TextView
     private lateinit var tvDailyLimitValue: TextView
@@ -70,6 +70,7 @@ class AdminActivity : AppCompatActivity() {
     // Security & Recovery views
     private lateinit var cardChangePin: com.google.android.material.card.MaterialCardView
     private lateinit var cardCloudSync: com.google.android.material.card.MaterialCardView
+    private lateinit var cardContentFilter: com.google.android.material.card.MaterialCardView
 
     private lateinit var dpm: DevicePolicyManager
     private lateinit var adminComponent: ComponentName
@@ -88,7 +89,7 @@ class AdminActivity : AppCompatActivity() {
 
         initViews()
         setupListeners()
-        appManager.initialize() // Ensure blacklist is loaded/migrated
+        appManager.initialize()
         loadApps()
         updateTimeValues()
         updateSystemStatus()
@@ -96,9 +97,7 @@ class AdminActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        
-        // Check if the session is currently authorized via AdminPinManager
-        // This is cleared automatically in KiddoLockApp if the app goes to background
+
         if (!com.kiddolock.app.management.AdminPinManager.isAuthenticated()) {
             isSessionAuthorized = false
             val intent = Intent(this, AdminPinActivity::class.java).apply {
@@ -113,7 +112,6 @@ class AdminActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        // No longer using grace period logic here as KiddoLockApp handles process-level lockout
     }
 
     private fun initViews() {
@@ -121,21 +119,16 @@ class AdminActivity : AppCompatActivity() {
         etSearch = findViewById(R.id.etSearchApps)
         rvApps = findViewById(R.id.rvApps)
         pbLoading = findViewById(R.id.pbLoadingApps)
-        
+
         tvBedtimeValue = findViewById(R.id.tvBedtimeValue)
         tvDailyLimitValue = findViewById(R.id.tvDailyLimitValue)
 
-
-
-
-        // Setup RecyclerView
         appListAdapter = AppListAdapter(emptyList()) { packageName, isBlacklisted ->
             if (isBlacklisted) appManager.blacklistApp(packageName)
             else appManager.whitelistApp(packageName)
-            
-            // CRITICAL: Clear the cached blacklist so changes take effect immediately
+
             AppBlockManager.invalidateCache()
-            
+
             lifecycleScope.launch(Dispatchers.IO) {
                 val updatedApps = appManager.getInstalledApps()
                 withContext(Dispatchers.Main) {
@@ -148,42 +141,31 @@ class AdminActivity : AppCompatActivity() {
 
         cardChangePin = findViewById(R.id.cardChangePin)
         cardCloudSync = findViewById(R.id.cardCloudSync)
-
-        // Setup switches
-        // Setup Admin app state
-        
-
+        cardContentFilter = findViewById(R.id.cardContentFilter)
 
         try {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
             tvVersion.text = "גרסה ${pInfo.versionName}"
         } catch (e: Exception) {
-            tvVersion.text = "גרסה 1.5.5"
+            tvVersion.text = "גרסה 2.0.0"
         }
 
-
-
-        
         cardProtectionStatus = findViewById(R.id.cardProtectionStatus)
         viewStatusDot = findViewById(R.id.viewStatusDot)
-        
+
         startPulseAnimation()
-
-        // Removed recovery email initialization to streamline UI
-
 
         findViewById<View>(R.id.btnEmergencyUninstall).setOnClickListener {
             showUninstallDialog()
         }
 
-        // Initialize Sync View
         updateSyncStatus()
     }
 
     private fun updateSyncStatus() {
         val lastSync = getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
             .getLong("last_cloud_sync", 0L)
-        
+
         val tvSyncLastTime = findViewById<TextView>(R.id.tvSyncLastTime)
         if (lastSync == 0L) {
             tvSyncLastTime.text = "סנכרון אחרון: מעולם לא"
@@ -197,9 +179,6 @@ class AdminActivity : AppCompatActivity() {
     private fun setupListeners() {
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
 
-        // Search functionality
-
-        // Search functionality
         etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -208,7 +187,6 @@ class AdminActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        // Time Management buttons (consolidated under App Management)
         findViewById<View>(R.id.btnBedtime).setOnClickListener {
             showBedtimePicker()
         }
@@ -217,24 +195,19 @@ class AdminActivity : AppCompatActivity() {
             showDailyLimitPicker()
         }
 
-
-
-
-        // Instant Lock logic (Removed from UI but keeping functionality available for remote if needed)
-
-        // AI Insights logic
         findViewById<View>(R.id.cardAiInsights).setOnClickListener {
             startActivity(Intent(this, ParentInsightsActivity::class.java))
         }
 
-        // Removed recovery email listeners to streamline UI
-
-        // Help & About listener
         cardChangePin.setOnClickListener {
             val intent = Intent(this, AdminPinActivity::class.java).apply {
                 putExtra("CHANGE_PIN_MODE", true)
             }
             startActivity(intent)
+        }
+
+        cardContentFilter.setOnClickListener {
+            startActivity(Intent(this, ContentFilterActivity::class.java))
         }
 
         findViewById<View>(R.id.cardHelp).setOnClickListener {
@@ -258,9 +231,9 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun filterApps(query: String) {
-        val filtered = allApps.filter { 
-            it.appName.contains(query, ignoreCase = true) || 
-            it.packageName.contains(query, ignoreCase = true) 
+        val filtered = allApps.filter {
+            it.appName.contains(query, ignoreCase = true) ||
+                    it.packageName.contains(query, ignoreCase = true)
         }
         appListAdapter.updateApps(filtered)
     }
@@ -273,7 +246,6 @@ class AdminActivity : AppCompatActivity() {
     private fun showBedtimePicker() {
         val config = timeScheduler.getConfig()
         val startPicker = TimePickerDialog(this, { _, h, m ->
-            // Start time set, now pick end time
             val endPicker = TimePickerDialog(this, { _, eh, em ->
                 timeScheduler.saveConfig(config.copy(
                     quietHoursEnabled = true,
@@ -295,7 +267,7 @@ class AdminActivity : AppCompatActivity() {
     private fun showDailyLimitPicker() {
         val items = arrayOf("5 דקות", "10 דקות", "15 דקות", "30 דקות", "שעה אחת", "שעתיים", "3 שעות", "לא מוגבל")
         val values = intArrayOf(5, 10, 15, 30, 60, 120, 180, -1)
-        
+
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
             .setTitle("בחר מגבלה יומית")
             .setItems(items) { _, which ->
@@ -313,39 +285,29 @@ class AdminActivity : AppCompatActivity() {
     private fun showUninstallDialog() {
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
             .setTitle(R.string.notif_action_uninstall)
-            .setMessage("האם אתה בטוח שברצונך להסיר את KiddoLock? פעולה זו תבטל את כל ההגנות באופן מיידי.")
+            .setMessage("האם אתה בטוח שברצונך להסיר את SafeLock? פעולה זו תבטל את כל ההגנות באופן מיידי.")
             .setPositiveButton("הסר עכשיו") { _, _ ->
-                // Full cleanup chain to guarantee uninstall works:
-                
-                // 1. Set certified flag FIRST (prevents BypassGuard from blocking)
                 Prefs(this).certified_uninstall_in_progress = true
-                
-                // 2. Clear all Device Owner policies (if applicable)
                 PolicyManager.clearPolicies(this, adminComponent)
-                
-                // 3. Remove Device Admin entirely (allows system uninstall)
                 PolicyManager.removeDeviceAdmin(this)
-                
-                // 4. Disable uninstall protection pref locally immediately
+
                 getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
                     .edit()
                     .putBoolean("uninstall_protection_enabled", false)
                     .putBoolean("bypass_guard_enabled", false)
                     .apply()
-                
-                // 5. Explicitly allow the package manager to uninstall us
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     try {
                         dpm.setUninstallBlocked(adminComponent, packageName, false)
                     } catch (_: Exception) {}
                 }
 
-                // 6. Launch system uninstall intent
                 val intent = Intent(Intent.ACTION_DELETE)
                 intent.data = Uri.parse("package:$packageName")
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 startActivity(intent)
-                
+
                 finish()
             }
             .setNegativeButton("ביטול", null)
@@ -359,11 +321,10 @@ class AdminActivity : AppCompatActivity() {
 
     private fun updateSystemStatus() {
         val isAccessibilityEnabled = isAccessibilityServiceEnabled()
-        
-        // Update Protection Banner based on core accessibility service AND Kids Mode toggle
+
         if (isAccessibilityEnabled && kidsModeManager.isEnabled) {
             findViewById<TextView>(R.id.tvProtectionStatusTitle).text = "מצב הגנה: פעיל"
-            findViewById<TextView>(R.id.tvProtectionStatusSubtitle).text = "KiddoLock שומר על המכשיר כעת"
+            findViewById<TextView>(R.id.tvProtectionStatusSubtitle).text = "SafeLock שומר על המכשיר כעת"
             viewStatusDot.setBackgroundResource(R.drawable.shape_dot_green)
             cardProtectionStatus.strokeColor = 0xFF4CAF50.toInt()
             if (viewStatusDot.animation == null) {
@@ -374,7 +335,7 @@ class AdminActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.tvProtectionStatusSubtitle).text = "הגנות הושעו על ידי ההורה"
             viewStatusDot.setBackgroundResource(R.drawable.shape_dot_yellow)
             viewStatusDot.clearAnimation()
-            cardProtectionStatus.strokeColor = 0xFFFFC107.toInt() // Amber/Yellow
+            cardProtectionStatus.strokeColor = 0xFFFFC107.toInt()
         } else {
             findViewById<TextView>(R.id.tvProtectionStatusTitle).text = "מצב הגנה: כבוי"
             findViewById<TextView>(R.id.tvProtectionStatusSubtitle).text = "הפעל שירות נגישות כדי להגן"
@@ -391,7 +352,7 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
-        val service = "$packageName/${com.kiddolock.app.services.KiddoLockAccessibilityService::class.java.name}"
+        val service = "$packageName/${com.kiddolock.app.services.SafeLockAccessibilityService::class.java.name}"
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
         return enabledServices?.contains(service) == true
     }
