@@ -29,14 +29,26 @@ class SafeLockApp : Application() {
     }
 
     override fun onCreate() {
+        android.util.Log.i("SAFELOCK_FLOW", "SafeLockApp.onCreate: start")
         super.onCreate()
         instance = this
 
         // Initial cloud sync to restore settings if missing/reinstalled
-        SettingsSyncManager(this).syncSettingsOnStart()
+        try {
+            SettingsSyncManager(this).syncSettingsOnStart()
+        } catch (t: Throwable) {
+            android.util.Log.e("SAFELOCK_FLOW", "SettingsSync init failed (non-fatal)", t)
+        }
 
-        // Warm up the content-filter DB
-        database.openHelper.writableDatabase
+        // Warm up the content-filter DB on a background thread to avoid ANR on slow devices
+        Thread {
+            try {
+                database.openHelper.writableDatabase
+                android.util.Log.i("SAFELOCK_FLOW", "DB warm-up complete")
+            } catch (t: Throwable) {
+                android.util.Log.e("SAFELOCK_FLOW", "DB warm-up failed (non-fatal)", t)
+            }
+        }.start()
 
         // Clear the parent PIN session when app goes to background
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -44,5 +56,6 @@ class SafeLockApp : Application() {
                 AdminPinManager.clearSession()
             }
         })
+        android.util.Log.i("SAFELOCK_FLOW", "SafeLockApp.onCreate: complete")
     }
 }

@@ -1,18 +1,12 @@
 package com.kiddolock.app
 import com.kiddolock.app.R
 
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
-import android.app.AppOpsManager
-import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.os.Process
-import android.provider.Settings
+import android.util.Log
 import android.view.View
-import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -20,16 +14,16 @@ import androidx.core.content.ContextCompat
 import com.kiddolock.app.management.AdminPinManager
 import com.kiddolock.app.management.AppBlockManager
 import com.kiddolock.app.management.AppUsageManager
-import com.kiddolock.app.receivers.KiddoDeviceAdminReceiver
-import com.kiddolock.app.services.SafeLockAccessibilityService
 import com.kiddolock.app.ui.AdminActivity
 import com.kiddolock.app.ui.AdminPinActivity
 import com.kiddolock.app.ui.SetupActivity
 import com.kiddolock.app.management.KidsModeManager
+import com.kiddolock.app.utils.PermissionUtils
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var tvChildName: TextView
+    companion object { private const val TAG = "SAFELOCK_FLOW" }
+
     private lateinit var tvProtectionStatus: TextView
     private lateinit var tvProtectionDetail: TextView
     private lateinit var tvPinStatus: TextView
@@ -39,73 +33,57 @@ class MainActivity : AppCompatActivity() {
     private lateinit var kidsModeManager: KidsModeManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.i(TAG, "MainActivity.onCreate: start")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         initViews()
         setupListeners()
-        
-        // Sync settings from cloud on start
-        com.kiddolock.app.management.SettingsSyncManager(this).syncSettingsOnStart()
-        
+
+        // Sync settings from cloud on start (runs async — never blocks UI)
+        try {
+            com.kiddolock.app.management.SettingsSyncManager(this).syncSettingsOnStart()
+        } catch (e: Throwable) {
+            Log.e(TAG, "MainActivity: syncSettingsOnStart failed (non-fatal)", e)
+        }
+
         AppUsageManager.trackAppOpen(this)
 
         // Request notification permission silently (no Toast, no redirect)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) 
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 androidx.core.app.ActivityCompat.requestPermissions(
                     this, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101
                 )
             }
         }
+        Log.i(TAG, "MainActivity.onCreate: complete")
     }
 
     override fun onResume() {
+        Log.i(TAG, "MainActivity.onResume: start")
         super.onResume()
         updateStatus()
-        
+
         // === SINGLE CHECK: if critical permissions are missing → redirect to SetupActivity ===
-        // This replaces the old chaos of multiple Toasts + multiple settings intents
-        if (!isSetupComplete()) {
+        if (!PermissionUtils.isSetupComplete(this)) {
+            Log.i(TAG, "MainActivity.onResume: setup NOT complete → launch SetupActivity")
             startActivity(Intent(this, SetupActivity::class.java))
-            // Don't finish() — user can come back after completing setup
             return
         }
+        Log.i(TAG, "MainActivity.onResume: setup IS complete")
 
         // === PIN protection (only after setup is complete) ===
         if (!AdminPinManager.isPinSet(this)) {
+            Log.i(TAG, "MainActivity.onResume: no PIN set → AdminPinActivity")
             startActivity(Intent(this, AdminPinActivity::class.java))
         } else if (!AdminPinManager.isAuthenticated()) {
+            Log.i(TAG, "MainActivity.onResume: PIN set but session expired → AdminPinActivity")
             startActivity(Intent(this, AdminPinActivity::class.java))
+        } else {
+            Log.i(TAG, "MainActivity.onResume: PIN ok — showing main UI")
         }
-    }
-
-    /**
-     * Check if all critical permissions are set up.
-     * If ANY is missing, redirect to SetupActivity guided flow.
-     */
-    private fun isSetupComplete(): Boolean {
-        // 1. Overlay permission
-        if (!Settings.canDrawOverlays(this)) return false
-
-        // 2. Accessibility service
-        if (!isAccessibilityServiceEnabled()) return false
-
-        // 3. Device Admin
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val adminComponent = ComponentName(this, KiddoDeviceAdminReceiver::class.java)
-        if (!dpm.isAdminActive(adminComponent)) return false
-
-        // 4. Usage Access
-        val appOps = getSystemService(APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(), packageName
-        )
-        if (mode != AppOpsManager.MODE_ALLOWED) return false
-
-        return true
     }
 
     private fun initViews() {
@@ -118,7 +96,7 @@ class MainActivity : AppCompatActivity() {
         tvKidsModeStatusMain = findViewById(R.id.tvKidsModeStatusMain)
         kidsModeManager = KidsModeManager(this)
 
-        tvVersion.text = "KiddoLock גרסה ${packageManager.getPackageInfo(packageName, 0).versionName}"
+        tvVersion.text = "SafeLock גרסה ${packageManager.getPackageInfo(packageName, 0).versionName}"
     }
 
     private fun setupListeners() {
@@ -132,16 +110,15 @@ class MainActivity : AppCompatActivity() {
 
         swKidsModeMain.setOnCheckedChangeListener { buttonView, isChecked ->
             if (!buttonView.isPressed) return@setOnCheckedChangeListener // Only trigger on user interaction
-            
+
             kidsModeManager.isEnabled = isChecked
-            // Invalidate cache and clear all temporary bypasses to ensure immediate protection
             if (isChecked) {
                 AppBlockManager.clearAllBypasses(this)
             } else {
                 AppBlockManager.invalidateCache()
             }
             updateStatus()
-            
+
             if (isChecked) {
                 Toast.makeText(this, "מצב ילדים הופעל - ההגנות נכנסו לתוקף", Toast.LENGTH_SHORT).show()
             } else {
@@ -167,7 +144,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateStatus() {
         val isLocked = AppBlockManager.isLocked(this)
         val kidsModeEnabled = KidsModeManager(this).isEnabled
-        
+
         if (isLocked) {
             tvProtectionStatus.text = "המכשיר נעול"
             tvProtectionStatus.setTextColor(Color.RED)
@@ -182,7 +159,6 @@ class MainActivity : AppCompatActivity() {
             tvProtectionDetail.text = "🛡️"
         }
 
-        // Sync local switch state with manager
         if (::swKidsModeMain.isInitialized) {
             swKidsModeMain.isChecked = kidsModeEnabled
             tvKidsModeStatusMain.text = if (kidsModeEnabled) "כל ההגנות פעילות" else "המכשיר במצב חופשי"
@@ -195,11 +171,5 @@ class MainActivity : AppCompatActivity() {
         val isPinSet = AdminPinManager.isPinSet(this)
         tvPinStatus.text = if (isPinSet) getString(R.string.pin_set) else "לא הוגדר קוד"
         tvPinStatus.setTextColor(if (isPinSet) ContextCompat.getColor(this, R.color.success_green) else Color.GRAY)
-    }
-
-    private fun isAccessibilityServiceEnabled(): Boolean {
-        val expectedComponentName = ComponentName(this, SafeLockAccessibilityService::class.java)
-        val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        return enabledServices?.contains(expectedComponentName.flattenToString()) == true
     }
 }

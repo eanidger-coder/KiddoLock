@@ -2,9 +2,9 @@ package com.kiddolock.app.ui
 import com.kiddolock.app.R
 import com.kiddolock.app.management.AdminPinManager
 import com.kiddolock.app.management.SettingsSyncManager
+import com.kiddolock.app.utils.PermissionUtils
 
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Button
 import android.widget.Toast
@@ -13,9 +13,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.kiddolock.app.MainActivity
 import com.kiddolock.app.receivers.KiddoDeviceAdminReceiver
-import com.kiddolock.app.services.SafeLockAccessibilityService
 import android.Manifest
-import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -25,24 +23,25 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Process
-import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import android.view.View
 
 /**
- * Modern Setup Wizard for KiddoLock.
+ * Modern Setup Wizard for SafeLock.
  * Guides parents through enabling essential protection permissions.
  * 6 steps: Notifications → Overlay → Accessibility → Device Admin → Usage Access → Recovery Email
  */
 class SetupActivity : AppCompatActivity() {
+
+    companion object { private const val TAG = "SAFELOCK_FLOW" }
 
     private lateinit var cardNotifications: androidx.constraintlayout.widget.ConstraintLayout
     private lateinit var cardOverlay: androidx.constraintlayout.widget.ConstraintLayout
     private lateinit var cardAccessibility: androidx.constraintlayout.widget.ConstraintLayout
     private lateinit var cardDeviceAdmin: androidx.constraintlayout.widget.ConstraintLayout
     private lateinit var cardUsageAccess: androidx.constraintlayout.widget.ConstraintLayout
-    
+
     private lateinit var imgNotificationStatus: ImageView
     private lateinit var imgOverlayStatus: ImageView
     private lateinit var imgAccessibilityStatus: ImageView
@@ -54,19 +53,19 @@ class SetupActivity : AppCompatActivity() {
     private lateinit var tvAccessibilityAction: TextView
     private lateinit var tvAdminAction: TextView
     private lateinit var tvUsageAction: TextView
-    
+
     private lateinit var btnContinue: MaterialButton
     private lateinit var etRecoveryEmail: com.google.android.material.textfield.TextInputEditText
     private lateinit var tilRecoveryEmail: com.google.android.material.textfield.TextInputLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.i(TAG, "SetupActivity.onCreate: start")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
 
         // Mark setup as in progress so BypassGuard allows settings access
         setSetupInProgress(true)
 
-        // Initialize UI components
         cardNotifications = findViewById(R.id.cardNotifications)
         cardOverlay = findViewById(R.id.cardOverlay)
         cardAccessibility = findViewById(R.id.cardAccessibility)
@@ -94,6 +93,7 @@ class SetupActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
+        Log.i(TAG, "SetupActivity.onResume")
         super.onResume()
         updateStatus()
     }
@@ -104,7 +104,7 @@ class SetupActivity : AppCompatActivity() {
                 showPermissionGuide(
                     getString(R.string.guide_title_notifications),
                     getString(R.string.guide_desc_notifications),
-                    R.drawable.guide_notifications // Placeholder/Generated
+                    R.drawable.guide_notifications
                 ) {
                     requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
                 }
@@ -133,7 +133,7 @@ class SetupActivity : AppCompatActivity() {
                 R.drawable.guide_accessibility
             ) {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "מצא את SafeLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -155,28 +155,44 @@ class SetupActivity : AppCompatActivity() {
             showPermissionGuide(
                 getString(R.string.guide_title_usage),
                 getString(R.string.guide_desc_usage),
-                R.drawable.guide_usage_access // Placeholder/Generated
+                R.drawable.guide_usage_access
             ) {
                 startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל גישה", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "מצא את SafeLock ברשימה והפעל גישה", Toast.LENGTH_LONG).show()
             }
         }
 
-
         btnContinue.setOnClickListener {
+            Log.i(TAG, "SetupActivity.btnContinue clicked")
             val email = etRecoveryEmail.text.toString().trim()
             if (email.isNotEmpty() && !isValidEmail(email)) {
                 tilRecoveryEmail.error = "כתובת אימייל לא תקינה"
                 return@setOnClickListener
             }
             tilRecoveryEmail.error = null
-            
+
+            // Defensive: re-check perms at click time to avoid stale UI state
+            if (!PermissionUtils.isSetupComplete(this)) {
+                Log.w(TAG, "SetupActivity.btnContinue: perms incomplete at click time")
+                Toast.makeText(this, "עדיין חסרה הרשאה — בדוק שכל השלבים ירוקים", Toast.LENGTH_LONG).show()
+                updateStatus()
+                return@setOnClickListener
+            }
+
             if (email.isNotEmpty()) {
                 AdminPinManager.setRecoveryEmail(this, email)
             }
-            SettingsSyncManager.syncNow(this)
+            try {
+                SettingsSyncManager.syncNow(this)
+            } catch (e: Throwable) {
+                Log.e(TAG, "SettingsSyncManager.syncNow failed (non-fatal)", e)
+            }
             setSetupInProgress(false)
-            startActivity(Intent(this, MainActivity::class.java))
+            Log.i(TAG, "SetupActivity.btnContinue: launching MainActivity")
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
             finish()
         }
     }
@@ -186,38 +202,28 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
-        // Step 1: Notifications
         val hasNotifications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         } else true
         setStepStatus(imgNotificationStatus, cardNotifications, hasNotifications, tvNotifAction)
 
-        // Step 2: Overlay
-        val hasOverlay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(this)
-        } else true
+        val hasOverlay = PermissionUtils.hasOverlay(this)
         setStepStatus(imgOverlayStatus, cardOverlay, hasOverlay, tvOverlayAction)
 
-        // Step 3: Accessibility
-        val hasAccessibility = isAccessibilityServiceEnabled(this, SafeLockAccessibilityService::class.java)
+        val hasAccessibility = PermissionUtils.hasAccessibilityService(this)
         setStepStatus(imgAccessibilityStatus, cardAccessibility, hasAccessibility, tvAccessibilityAction)
 
-        // Step 4: Device Admin
-        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val hasAdmin = dpm.isAdminActive(ComponentName(this, KiddoDeviceAdminReceiver::class.java))
+        val hasAdmin = PermissionUtils.hasDeviceAdmin(this)
         setStepStatus(imgDeviceAdminStatus, cardDeviceAdmin, hasAdmin, tvAdminAction)
 
-        // Step 5: Usage Access
-        val hasUsage = isUsageAccessEnabled()
+        val hasUsage = PermissionUtils.hasUsageAccess(this)
         setStepStatus(imgUsageStatus, cardUsageAccess, hasUsage, tvUsageAction)
 
+        Log.i(TAG, "SetupActivity.updateStatus: overlay=$hasOverlay a11y=$hasAccessibility admin=$hasAdmin usage=$hasUsage notif=$hasNotifications")
 
-        // Enable button only when all critical steps done
         btnContinue.isEnabled = hasOverlay && hasAccessibility && hasAdmin && hasUsage
         btnContinue.alpha = if (btnContinue.isEnabled) 1.0f else 0.5f
     }
-
-
 
     private fun setStepStatus(icon: ImageView, card: View, active: Boolean, actionHint: TextView? = null) {
         if (active) {
@@ -237,29 +243,6 @@ class SetupActivity : AppCompatActivity() {
         }
     }
 
-    private fun isAccessibilityServiceEnabled(context: Context, service: Class<*>): Boolean {
-        val expectedComponentName = ComponentName(context, service)
-        val enabledServicesSetting = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-            ?: return false
-        val colonSplitter = android.text.TextUtils.SimpleStringSplitter(':')
-        colonSplitter.setString(enabledServicesSetting)
-        while (colonSplitter.hasNext()) {
-            val componentNameString = colonSplitter.next()
-            val enabledService = ComponentName.unflattenFromString(componentNameString)
-            if (enabledService != null && enabledService == expectedComponentName) return true
-        }
-        return false
-    }
-
-    private fun isUsageAccessEnabled(): Boolean {
-        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val mode = appOps.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(), packageName
-        )
-        return mode == AppOpsManager.MODE_ALLOWED
-    }
-
     private fun showPermissionGuide(guideTitle: String, guideDesc: String, imageRes: Int, onConfirm: () -> Unit) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_permission_guide, null)
         val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
@@ -269,10 +252,10 @@ class SetupActivity : AppCompatActivity() {
         dialogView.findViewById<TextView>(R.id.tvGuideTitle).text = guideTitle
         val tvDesc = dialogView.findViewById<TextView>(R.id.tvGuideDescription)
         tvDesc.text = guideDesc
-        
+
         val imgGuide = dialogView.findViewById<ImageView>(R.id.imgGuide)
         imgGuide.setImageResource(imageRes)
-        
+
         val cardGuideImage = dialogView.findViewById<View>(R.id.cardGuideImage)
 
         val confirmAction = {
@@ -280,7 +263,6 @@ class SetupActivity : AppCompatActivity() {
             onConfirm()
         }
 
-        // Multi-link interactivity: Clicking button, text, or image triggers settings
         dialogView.findViewById<Button>(R.id.btnGoToSettings).setOnClickListener { confirmAction() }
         tvDesc.setOnClickListener { confirmAction() }
         imgGuide.setOnClickListener { confirmAction() }

@@ -97,7 +97,7 @@
                             android:id="@+id/tvProtectionStatusSubtitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="KiddoLock שומר על המכשיר כעת"
+                            android:text="SafeLock שומר על המכשיר כעת"
                             android:textColor="#A0A0A0"
                             android:textSize="12sp"
                             android:hyphenationFrequency="none"

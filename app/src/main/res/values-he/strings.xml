@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">KiddoLock V1.2</string>
+    <string name="app_name">SafeLock</string>
     <string name="accessibility_service_description">שירות זה נדרש על מנת לאפשר חסימת אפליקציות והגבלת זמן מסך. אנא רשאי זאת כדי להגן על ילדך.</string>
 
     <!-- Main Activity -->
@@ -11,8 +11,8 @@
     <string name="daily_limit">הגבלת זמן יומית</string>
     <string name="strict_mode">מצב קפדני (חסימת הגדרות)</string>
     <string name="security_settings">אבטחה והגנה</string>
-    <string name="device_admin_label">KiddoLock Protection</string>
-    <string name="device_admin_description">מאפשר ל-KiddoLock להגן על המכשיר מפני הסרה לא מורשית</string>
+    <string name="device_admin_label">הגנת SafeLock</string>
+    <string name="device_admin_description">מאפשר ל-SafeLock להגן על המכשיר מפני הסרה לא מורשית</string>
     <string name="admin_settings">הגדרות הורה</string>
     <string name="kids_mode_settings">מצב ילדים</string>
     <string name="guide_btn_understood">הבנתי, להמשך ←</string>
@@ -23,7 +23,7 @@
     <string name="grant_15_min">הוסף 15 דקות</string>
     <string name="grant_30_min">הוסף 30 דקות</string>
     <string name="grant_1_hour">הוסף שעה</string>
-    <string name="setup_title">ברוכים הבאים ל-KiddoLock</string>
+    <string name="setup_title">ברוכים הבאים ל-SafeLock</string>
     <string name="setup_subtitle">הגדרה קלה ב-3 צעדים</string>
     <string name="continue_btn">המשך</string>
     <string name="finish_setup">סיום הגדרה</string>
@@ -57,12 +57,12 @@
     <string name="protection_inactive">ההגנה כבויה</string>
     <string name="no_limit">ללא</string>
     <string name="pin_not_set">לא הוגדר ⚠️</string>
-    <string name="setup_accessibility_toast">מצא את \'KiddoLock\' והפעל אותו כדי לאפשר חסימת אפליקציות</string>
+    <string name="setup_accessibility_toast">מצא את \'SafeLock\' והפעל אותו כדי לאפשר חסימת אפליקציות</string>
     <string name="setup_admin_explanation">נדרש כדי למנוע מהילד למחוק את האפליקציה</string>
     <string name="device_unlocked_toast">המכשיר שוחרר מנעילה</string>
     <string name="device_locked_toast">המכשיר ננעל בהצלחה</string>
     <string name="uninstall_dialog_title">הסרת אפליקציה</string>
-    <string name="uninstall_dialog_message">האם אתה בטוח שברצונך להסיר את KiddoLock?\nפעולה זו תבטל את כל ההגנות.</string>
+    <string name="uninstall_dialog_message">האם אתה בטוח שברצונך להסיר את SafeLock?\nפעולה זו תבטל את כל ההגנות.</string>
     <string name="uninstall_confirm">כן, הסר</string>
     <string name="bedtime_updated_toast">שעת שינה עודכנה ל-%1$d:00</string>
     <string name="select_daily_limit">בחר הגבלת זמן יומית</string>
@@ -131,17 +131,17 @@
 
     <string name="emergency_mode_toast">מצב חירום הופעל: כל ההגנות נוטרלו ל-2 דקות ⚠️</string>
 
-    <string name="weekly_report_summary_header">🛡️ סיכום שבועי — KiddoLock</string>
+    <string name="weekly_report_summary_header">🛡️ סיכום שבועי — SafeLock</string>
     <string name="weekly_report_screen_time">📱 זמן מסך היום: %1$dש׳ %2$dד׳</string>
     <string name="weekly_report_top_app">🔝 אפליקציה בשימוש גבוה: %1$s</string>
     <string name="weekly_report_no_usage">📱 לא נרשם שימוש משמעותי היום.</string>
     <string name="weekly_report_footer">✨ המכשיר מוגן ומבוקר כראוי.</string>
     <string name="weekly_report_notif_title">הסיכום השבועי שלך מוכן 📊</string>
     <string name="weekly_report_channel_name">דוחות שבועיים</string>
-    <string name="weekly_report_channel_desc">סיכום שבועי של פעילות KiddoLock</string>
+    <string name="weekly_report_channel_desc">סיכום שבועי של פעילות SafeLock</string>
     <string name="app_limit_exceeded_msg">⏱️ הגעת למגבלת הזמן היומית של %1$s (%2$d דקות)</string>
 
-    <string name="overlay_security_badge">אבטחת KIDDOLOCK</string>
+    <string name="overlay_security_badge">אבטחת SAFELOCK</string>
     <string name="overlay_blocked_msg">גישה הוגבלה על ידי ההורים</string>
     <string name="overlay_go_back">חזרה לבטיחות</string>
     <string name="overlay_return_home">סגור אפליקציה וחזור הביתה</string>
