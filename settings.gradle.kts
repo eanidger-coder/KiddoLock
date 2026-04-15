@@ -12,5 +12,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "KiddoLock"
+rootProject.name = "SafeLock"
 include(":app")
