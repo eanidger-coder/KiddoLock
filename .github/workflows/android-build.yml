@@ -122,8 +122,11 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -camera-back none -gpu swiftshader_indirect
           script: |
-            set -e
+            # Intentionally no `set -e`: every diagnostic command is best-effort,
+            # screenshot failures should never hide a real test failure or vice
+            # versa. We propagate only the gradle exit code at the end.
             mkdir -p screenshots
+            TEST_FAILED=0
 
             # 1. Run the full instrumented-test suite (includes the new
             #    EmergencyUninstallNotificationTest which verifies the PIN-gated
@@ -138,22 +141,27 @@ jobs:
             # App was installed by the test run. Launch the main activity.
             adb shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 || true
             sleep 4
-            adb shell screencap -p /sdcard/01_launch.png && adb pull /sdcard/01_launch.png screenshots/
+            adb shell screencap -p /sdcard/01_launch.png || true
+            adb pull /sdcard/01_launch.png screenshots/ || true
 
             # Pull the notification shade down to expose the ongoing notification
             # and its new "הסרת חירום" action button.
             adb shell cmd statusbar expand-notifications || true
             sleep 2
-            adb shell screencap -p /sdcard/02_notification_shade.png && adb pull /sdcard/02_notification_shade.png screenshots/
+            adb shell screencap -p /sdcard/02_notification_shade.png || true
+            adb pull /sdcard/02_notification_shade.png screenshots/ || true
             adb shell cmd statusbar collapse || true
 
             # Dump the active notifications — irrefutable textual proof the
             # uninstall action is attached to the ongoing notification.
-            adb shell dumpsys notification --noredact > screenshots/notification_dump.txt || true
+            adb shell dumpsys notification --noredact > screenshots/notification_dump.txt 2>&1 || true
 
-            if [ -n "$TEST_FAILED" ]; then
-              exit $TEST_FAILED
-            fi
+            # Grep the dump for the Hebrew label to make regressions obvious at
+            # a glance in the raw log even without opening the artifact.
+            echo "=== grep: הסרת חירום in notification dump ==="
+            grep -n "הסרת חירום" screenshots/notification_dump.txt || echo "(label not found in dump)"
+
+            exit $TEST_FAILED
 
       - name: Upload instrumented-test report
         if: always()
