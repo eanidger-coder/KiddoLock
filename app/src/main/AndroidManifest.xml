@@ -73,7 +73,7 @@
         </service>
 
         <activity
-            android:name=".ui.SplashActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.SafeLock">
             <intent-filter>
@@ -81,11 +81,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="false"
-            android:theme="@style/Theme.SafeLock" />
 
         <activity
             android:name=".ui.SetupActivity"
