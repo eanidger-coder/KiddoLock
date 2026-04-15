@@ -93,5 +93,22 @@
             app:cornerRadius="20dp"
             app:elevation="6dp" />
 
+        <!-- Secondary action — shown only on Android 13+ accessibility card
+             so the parent can jump straight into App Info where the
+             "Allow restricted settings" toggle lives behind the ⋮ menu. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnOpenAppInfo"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/guide_btn_open_app_info"
+            android:textColor="@color/cyan_accent"
+            android:textSize="15sp"
+            android:textAllCaps="false"
+            android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="12dp"
+            android:visibility="gone" />
+
     </LinearLayout>
 </ScrollView>

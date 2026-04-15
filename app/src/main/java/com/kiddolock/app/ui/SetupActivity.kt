@@ -127,10 +127,19 @@ class SetupActivity : AppCompatActivity() {
         }
 
         cardAccessibility.setOnClickListener {
+            // On Android 13+ the OS sometimes greys out the SafeLock toggle in
+            // Accessibility Settings ("restricted settings" protection for
+            // sideloaded apps). The remedy lives behind the ⋮ menu inside
+            // App Info — expose a one-tap shortcut to that exact screen so
+            // the parent doesn't have to hunt for it.
+            val showAppInfoShortcut = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
             showPermissionGuide(
                 getString(R.string.guide_title_accessibility),
                 getString(R.string.guide_desc_accessibility),
-                R.drawable.guide_accessibility
+                R.drawable.guide_accessibility,
+                secondaryAction = if (showAppInfoShortcut) {
+                    { openAppInfoForRestrictedSettings() }
+                } else null,
             ) {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 Toast.makeText(this, "מצא את SafeLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
@@ -243,7 +252,13 @@ class SetupActivity : AppCompatActivity() {
         }
     }
 
-    private fun showPermissionGuide(guideTitle: String, guideDesc: String, imageRes: Int, onConfirm: () -> Unit) {
+    private fun showPermissionGuide(
+        guideTitle: String,
+        guideDesc: String,
+        imageRes: Int,
+        secondaryAction: (() -> Unit)? = null,
+        onConfirm: () -> Unit,
+    ) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_permission_guide, null)
         val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.CustomAlertDialog)
             .setView(dialogView)
@@ -268,7 +283,46 @@ class SetupActivity : AppCompatActivity() {
         imgGuide.setOnClickListener { confirmAction() }
         cardGuideImage.setOnClickListener { confirmAction() }
 
+        // Optional secondary action (e.g. "SafeLock is greyed out? Open App
+        // Info") — only wired when caller opts in.
+        val btnAppInfo = dialogView.findViewById<Button>(R.id.btnOpenAppInfo)
+        if (secondaryAction != null) {
+            btnAppInfo.visibility = View.VISIBLE
+            btnAppInfo.setOnClickListener {
+                dialog.dismiss()
+                secondaryAction()
+            }
+        }
+
         dialog.show()
+    }
+
+    /**
+     * Launches the system "App Info" page for SafeLock — the screen where the
+     * ⋮ overflow hosts the "Allow restricted settings" toggle on Android 13+.
+     * Shows a long toast telling the parent exactly where to tap next, since
+     * the OS itself gives no hint.
+     */
+    private fun openAppInfoForRestrictedSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        try {
+            startActivity(intent)
+            Toast.makeText(
+                this,
+                getString(R.string.guide_app_info_toast),
+                Toast.LENGTH_LONG,
+            ).show()
+        } catch (e: android.content.ActivityNotFoundException) {
+            Log.e(TAG, "App Info screen not available", e)
+            Toast.makeText(
+                this,
+                "לא ניתן לפתוח את מסך פרטי האפליקציה במכשיר הזה",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
 
     private fun setSetupInProgress(inProgress: Boolean) {

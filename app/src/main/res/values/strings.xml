@@ -192,6 +192,8 @@
     <string name="guide_desc_usage">1. מצא את \'SafeLock\' ברשימה\n2. הפעל את המתג \'אפשר מעקב שימוש\'</string>
     <string name="setup_step_7_title">6. אימייל לשחזור</string>
     <string name="guide_btn_understood">הבנתי, המשך להגדרות</string>
+    <string name="guide_btn_open_app_info">SafeLock אפור? פתח פרטי אפליקציה</string>
+    <string name="guide_app_info_toast">לחץ על תפריט ⋮ בפינה → \'אפשר הגדרות מוגבלות\'</string>
     <string name="btn_emergency_uninstall_parent">הסרת חירום של SafeLock</string>
     <string name="security_parent_pin_title">אבטחה וקוד הורים</string>
     <string name="change_pin_label">החלפת קוד הורים</string>
