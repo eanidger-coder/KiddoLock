@@ -1,53 +1,74 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Primary palette -->
-    <color name="purple_primary">#6C2BEE</color>
-    <color name="purple_dark">#4A1DB0</color>
-    <color name="purple_light">#9B6EFF</color>
-    <color name="blue_primary">#2B7AEE</color>
-    <color name="blue_dark">#1A5BBF</color>
-    <color name="cyan_accent">#00E5FF</color>
-    <color name="cyan_glow">#4D00E5FF</color>
+&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;resources&gt;
+    &lt;!-- ===== SafeLock Neon Palette (from SafeKids) ===== --&gt;
+    &lt;color name="safelock_primary"&gt;#00F2FF&lt;/color&gt;
+    &lt;color name="safelock_primary_dark"&gt;#00A8B5&lt;/color&gt;
+    &lt;color name="safelock_primary_light"&gt;#80F9FF&lt;/color&gt;
+    &lt;color name="safelock_secondary"&gt;#7000FF&lt;/color&gt;
+    &lt;color name="safelock_secondary_dark"&gt;#4B00AA&lt;/color&gt;
+    &lt;color name="safelock_background"&gt;#050810&lt;/color&gt;
+    &lt;color name="safelock_surface"&gt;#0D1220&lt;/color&gt;
+    &lt;color name="safelock_surface_elevated"&gt;#141B2E&lt;/color&gt;
+    &lt;color name="safelock_error"&gt;#FF0055&lt;/color&gt;
+    &lt;color name="safelock_success"&gt;#00FF9D&lt;/color&gt;
+    &lt;color name="safelock_warning"&gt;#FFB800&lt;/color&gt;
+    &lt;color name="safelock_on_primary"&gt;#050810&lt;/color&gt;
+    &lt;color name="safelock_on_background"&gt;#FFFFFF&lt;/color&gt;
+    &lt;color name="safelock_on_surface"&gt;#E0E0FF&lt;/color&gt;
+    &lt;color name="safelock_card_shadow"&gt;#80000000&lt;/color&gt;
+    &lt;color name="safelock_overlay_bg"&gt;#E6050810&lt;/color&gt;
+    &lt;color name="safelock_glass_surface"&gt;#1AFFFFFF&lt;/color&gt;
+    &lt;color name="safelock_glass_background"&gt;#0DFFFFFF&lt;/color&gt;
+    &lt;color name="safelock_glass_outline"&gt;#26FFFFFF&lt;/color&gt;
+    &lt;color name="safelock_neon_glow"&gt;#4000F2FF&lt;/color&gt;
+    &lt;color name="safelock_accent_purple"&gt;#B066FF&lt;/color&gt;
+    &lt;color name="safelock_text_primary"&gt;#FFFFFF&lt;/color&gt;
+    &lt;color name="safelock_text_secondary"&gt;#B0B0C0&lt;/color&gt;
+    &lt;color name="safelock_text_tertiary"&gt;#6B6780&lt;/color&gt;
 
-    <!-- Status colors -->
-    <color name="success_green">#00C853</color>
-    <color name="danger_red">#FF1744</color>
-    <color name="warning_amber">#FFD600</color>
-    <color name="info_blue">#448AFF</color>
+    &lt;!-- Legacy KiddoLock aliases (keep existing layouts working) --&gt;
+    &lt;color name="purple_primary"&gt;@color/safelock_secondary&lt;/color&gt;
+    &lt;color name="purple_dark"&gt;@color/safelock_secondary_dark&lt;/color&gt;
+    &lt;color name="purple_light"&gt;#9B6EFF&lt;/color&gt;
+    &lt;color name="blue_primary"&gt;#2B7AEE&lt;/color&gt;
+    &lt;color name="blue_dark"&gt;#1A5BBF&lt;/color&gt;
+    &lt;color name="cyan_accent"&gt;@color/safelock_primary&lt;/color&gt;
+    &lt;color name="cyan_glow"&gt;@color/safelock_neon_glow&lt;/color&gt;
 
-    <!-- Background & Surface -->
-    <color name="bg_dark">#0D0B1A</color>
-    <color name="bg_surface">#1A1432</color>
-    <color name="bg_card">#1F1940</color>
-    <color name="bg_glass">#1AFFFFFF</color>
-    <color name="bg_glass_border">#33FFFFFF</color>
+    &lt;color name="success_green"&gt;@color/safelock_success&lt;/color&gt;
+    &lt;color name="danger_red"&gt;@color/safelock_error&lt;/color&gt;
+    &lt;color name="warning_amber"&gt;@color/safelock_warning&lt;/color&gt;
+    &lt;color name="info_blue"&gt;#448AFF&lt;/color&gt;
 
-    <!-- Text -->
-    <color name="text_primary">#FFFFFF</color>
-    <color name="text_secondary">#B8B5C8</color>
-    <color name="text_tertiary">#6B6780</color>
+    &lt;color name="bg_dark"&gt;@color/safelock_background&lt;/color&gt;
+    &lt;color name="bg_surface"&gt;@color/safelock_surface&lt;/color&gt;
+    &lt;color name="bg_card"&gt;@color/safelock_surface_elevated&lt;/color&gt;
+    &lt;color name="bg_glass"&gt;@color/safelock_glass_surface&lt;/color&gt;
+    &lt;color name="bg_glass_border"&gt;@color/safelock_glass_outline&lt;/color&gt;
 
-    <!-- Gradients (start/end pairs) -->
-    <color name="gradient_purple_start">#6C2BEE</color>
-    <color name="gradient_purple_end">#2B7AEE</color>
-    <color name="gradient_red_start">#FF1744</color>
-    <color name="gradient_red_end">#D50000</color>
-    <color name="gradient_green_start">#00E676</color>
-    <color name="gradient_green_end">#00C853</color>
+    &lt;color name="text_primary"&gt;@color/safelock_text_primary&lt;/color&gt;
+    &lt;color name="text_secondary"&gt;@color/safelock_text_secondary&lt;/color&gt;
+    &lt;color name="text_tertiary"&gt;@color/safelock_text_tertiary&lt;/color&gt;
 
-    <!-- System & UI Defaults -->
-    <color name="white">#FFFFFF</color>
-    <color name="accent_blue">#2B7AEE</color>
-    <color name="glass_white_05">#0DFFFFFF</color>
-    <color name="glass_white_10">#1AFFFFFF</color>
-    <color name="glass_white_50">#80FFFFFF</color>
-    <color name="glass_white_70">#B3FFFFFF</color>
-    <color name="glass_white_20">#33FFFFFF</color>
-    <color name="error_red">#FF1744</color>
+    &lt;color name="gradient_purple_start"&gt;@color/safelock_secondary&lt;/color&gt;
+    &lt;color name="gradient_purple_end"&gt;#2B7AEE&lt;/color&gt;
+    &lt;color name="gradient_red_start"&gt;@color/safelock_error&lt;/color&gt;
+    &lt;color name="gradient_red_end"&gt;#D50000&lt;/color&gt;
+    &lt;color name="gradient_green_start"&gt;@color/safelock_success&lt;/color&gt;
+    &lt;color name="gradient_green_end"&gt;#00C853&lt;/color&gt;
 
-    <color name="colorPrimary">@color/purple_primary</color>
-    <color name="colorPrimaryDark">@color/purple_dark</color>
-    <color name="colorAccent">@color/cyan_accent</color>
-    <color name="statusBarColor">@color/bg_dark</color>
-    <color name="navigationBarColor">@color/bg_dark</color>
-</resources>
+    &lt;color name="white"&gt;#FFFFFF&lt;/color&gt;
+    &lt;color name="accent_blue"&gt;#2B7AEE&lt;/color&gt;
+    &lt;color name="glass_white_05"&gt;#0DFFFFFF&lt;/color&gt;
+    &lt;color name="glass_white_10"&gt;#1AFFFFFF&lt;/color&gt;
+    &lt;color name="glass_white_50"&gt;#80FFFFFF&lt;/color&gt;
+    &lt;color name="glass_white_70"&gt;#B3FFFFFF&lt;/color&gt;
+    &lt;color name="glass_white_20"&gt;#33FFFFFF&lt;/color&gt;
+    &lt;color name="error_red"&gt;@color/safelock_error&lt;/color&gt;
+
+    &lt;color name="colorPrimary"&gt;@color/safelock_primary&lt;/color&gt;
+    &lt;color name="colorPrimaryDark"&gt;@color/safelock_primary_dark&lt;/color&gt;
+    &lt;color name="colorAccent"&gt;@color/safelock_secondary&lt;/color&gt;
+    &lt;color name="statusBarColor"&gt;@color/safelock_background&lt;/color&gt;
+    &lt;color name="navigationBarColor"&gt;@color/safelock_background&lt;/color&gt;
+&lt;/resources&gt;
