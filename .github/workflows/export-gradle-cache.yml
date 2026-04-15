@@ -20,6 +20,9 @@ jobs:
       contents: write   # needed to force-push the snapshot branch
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - uses: actions/setup-java@v4
         with:
@@ -57,15 +60,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Fresh orphan branch each run — we never merge this into main, it
-          # only exists to ferry the tarballs to the sandboxed agent.
-          git worktree add --detach /tmp/snap
-          cd /tmp/snap
-          git checkout --orphan gradle-cache-snapshot
-          git rm -rf . 2>/dev/null || true
-          cp /tmp/snapshot/gradle-caches.tar.gz .
-          cp /tmp/snapshot/android-sdk.tar.gz .
-          echo "Primed by run ${{ github.run_id }} on ${{ github.sha }}" > INFO
+          # Build the orphan branch in a clean temp dir. A fresh `git init`
+          # avoids shallow-clone + worktree + orphan issues that bit the
+          # previous attempt.
+          WORK=$(mktemp -d)
+          cp /tmp/snapshot/gradle-caches.tar.gz "$WORK/"
+          cp /tmp/snapshot/android-sdk.tar.gz "$WORK/"
+          echo "Primed by run ${{ github.run_id }} on ${{ github.sha }}" > "$WORK/INFO"
+          cd "$WORK"
+          git init -q -b gradle-cache-snapshot
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add gradle-caches.tar.gz android-sdk.tar.gz INFO
-          git commit -m "snapshot: gradle+sdk for sandbox bootstrap (run ${{ github.run_id }})"
-          git push --force origin gradle-cache-snapshot
+          git commit -q -m "snapshot: gradle+sdk (run ${{ github.run_id }})"
+          git push --force \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" \
+            gradle-cache-snapshot:gradle-cache-snapshot
