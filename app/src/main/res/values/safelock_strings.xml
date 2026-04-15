@@ -18,6 +18,7 @@
     <string name="content_filter_disabled">סינון תוכן כבוי</string>
     <string name="content_filter_toggle_label">הפעל סינון אוטומטי של YouTube</string>
     <string name="content_filter_blocks_count">חסימות עד כה: %1$d</string>
+    <string name="content_filter_remove_confirm">להסיר את \"%1$s\" מהרשימה?</string>
 
     <!-- Block Screen (SafeKids) -->
     <string name="block_emoji">🛑</string>
