@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.kiddolock.app.MainActivity
 import com.kiddolock.app.management.AppBlockManager
+import com.kiddolock.app.ui.AdminPinActivity
 import com.kiddolock.app.utils.NotificationUtils
 import android.widget.Toast
 import android.util.Log
@@ -16,6 +17,18 @@ class EmergencyReceiver : BroadcastReceiver() {
         Log.i("EmergencyReceiver", "Received action: $action")
 
         when (action) {
+            NotificationUtils.ACTION_EMERGENCY_UNINSTALL -> {
+                // Launch the PIN gate — AdminPinActivity already handles
+                // EMERGENCY_UNINSTALL: on correct PIN it calls
+                // AppBlockManager.uninstallSelf(), which removes the device
+                // admin and fires ACTION_DELETE.
+                val pinIntent = Intent(context, AdminPinActivity::class.java).apply {
+                    this.action = NotificationUtils.ACTION_EMERGENCY_UNINSTALL
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                context.startActivity(pinIntent)
+                Toast.makeText(context, "הזן קוד PIN כדי להסיר", Toast.LENGTH_SHORT).show()
+            }
             NotificationUtils.ACTION_EMERGENCY_UNLOCK -> {
                 // To make it very clear and working:
                 // 1. Temporarily suppress all blocks

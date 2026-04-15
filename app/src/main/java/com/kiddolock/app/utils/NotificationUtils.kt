@@ -84,13 +84,17 @@ object NotificationUtils {
             .setContentText(content)
             .setSmallIcon(R.drawable.ic_shield)
             .setColor(0xFF4CAF50.toInt()) // Green color for active protection
-            .setPriority(NotificationCompat.PRIORITY_MAX) 
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setAutoCancel(false)
+            // Emergency uninstall — opens PIN prompt; only parent with PIN can uninstall.
+            // Crucial when the app UI freezes: the notification button still works because
+            // it is backed by the foreground service broadcast receiver.
+            .addAction(R.drawable.ic_error, "הסרת חירום", uninstallPendingIntent)
             .build()
     }
 
