@@ -13,9 +13,9 @@ import androidx.core.app.NotificationCompat
 
 object NotificationUtils {
     const val CHANNEL_ID = "kiddolock_service_channel"
-    private const val CHANNEL_NAME = "הגנת KiddoLock"
+    private const val CHANNEL_NAME = "הגנת SafeLock"
     private const val SETUP_CHANNEL_ID = "kiddolock_setup_channel"
-    private const val SETUP_CHANNEL_NAME = "הגדרת KiddoLock"
+    private const val SETUP_CHANNEL_NAME = "הגדרת SafeLock"
     const val KIDDO_NOTIFICATION_ID = 2026
     private const val SETUP_NOTIFICATION_ID = 2027
     const val ACTION_BLOCK_LAST = "com.kiddolock.app.BLOCK_LAST_SITE"
@@ -33,7 +33,7 @@ object NotificationUtils {
                 CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Shows that KiddoLock protection is active"
+                description = "Shows that SafeLock protection is active"
             }
             manager.createNotificationChannel(channel)
 
@@ -52,7 +52,7 @@ object NotificationUtils {
         createNotificationChannel(context)
         isProtectionActive = active
         
-        val title = if (active) "KiddoLock: הגנה פעילה 🛡️" else "KiddoLock: בהמתנה"
+        val title = if (active) "SafeLock: הגנה פעילה 🛡️" else "SafeLock: בהמתנה"
         val content = if (active) "המכשיר מוגן ומנוטר בזמן אמת" else "לחץ להפעלת ההגנה"
 
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -110,7 +110,7 @@ object NotificationUtils {
         )
 
         val notification = NotificationCompat.Builder(context, SETUP_CHANNEL_ID)
-            .setContentTitle("KiddoLock לא עובד במלואו")
+            .setContentTitle("SafeLock לא עובד במלואו")
             .setContentText("חסר: $missingDetail — לחץ לתיקון")
             .setSmallIcon(R.drawable.ic_shield)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

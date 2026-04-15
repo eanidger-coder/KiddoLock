@@ -12,7 +12,7 @@ class KiddoDeviceAdminReceiver : DeviceAdminReceiver() {
     override fun onEnabled(context: Context, intent: Intent) {
         super.onEnabled(context, intent)
         Log.d("KiddoDeviceAdmin", "Device Admin Enabled")
-        Toast.makeText(context, "KiddoLock Protected", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "SafeLock Protected", Toast.LENGTH_SHORT).show()
         
         // Enforce policies immediately
         val componentName = ComponentName(context, KiddoDeviceAdminReceiver::class.java)
@@ -51,13 +51,13 @@ class KiddoDeviceAdminReceiver : DeviceAdminReceiver() {
         )
         
         // This message is shown by Android in a confirmation dialog
-        return "אזהרה קריטית: הגנת KiddoLock מופעלת. השבתת מנהל המכשיר תבטל את כל החסימות ותאפשר לילד להסיר את האפליקציה. \n\nאנא הזן את קוד ה-PIN במסך שזה עתה נפתח כדי להמשיך."
+        return "אזהרה קריטית: הגנת SafeLock מופעלת. השבתת מנהל המכשיר תבטל את כל החסימות ותאפשר לילד להסיר את האפליקציה. \n\nאנא הזן את קוד ה-PIN במסך שזה עתה נפתח כדי להמשיך."
     }
 
     override fun onDisabled(context: Context, intent: Intent) {
         super.onDisabled(context, intent)
         Log.d("KiddoDeviceAdmin", "Device Admin Disabled")
-        Toast.makeText(context, "אזהרה: הגנת KiddoLock הושבתה", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "אזהרה: הגנת SafeLock הושבתה", Toast.LENGTH_LONG).show()
         
         // Fire urgent notification
         NotificationUtils.showSetupIncompleteNotification(

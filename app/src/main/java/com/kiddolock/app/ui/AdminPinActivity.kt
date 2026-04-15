@@ -129,7 +129,7 @@ class AdminPinActivity : AppCompatActivity() {
         // Open email app with code
         val intent = Intent(Intent.ACTION_SENDTO).apply {
             data = Uri.parse("mailto:$email")
-            putExtra(Intent.EXTRA_SUBJECT, "קוד שחזור ל-KiddoLock")
+            putExtra(Intent.EXTRA_SUBJECT, "קוד שחזור ל-SafeLock")
             putExtra(Intent.EXTRA_TEXT, "קוד השחזור שלך הוא: $code\nניתן להשתמש בו ב-15 הדקות הקרובות.")
         }
         

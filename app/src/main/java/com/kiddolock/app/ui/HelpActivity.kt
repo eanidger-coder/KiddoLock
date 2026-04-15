@@ -57,7 +57,7 @@ class HelpActivity : AppCompatActivity() {
         }
         
         findViewById<TextView>(R.id.tvAboutApp).text = 
-            "KiddoLock v$version\n" +
+            "SafeLock v$version\n" +
             "פתרון חכם ובטוח לניהול זמן מסך.\n" +
             "נבנה עבור הדור הבא."
     }

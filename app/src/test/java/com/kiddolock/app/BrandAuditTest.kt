@@ -95,6 +95,57 @@ class BrandAuditTest {
     }
 
     @Test
+    fun kotlin_source_has_no_userVisible_KiddoLock_literals() {
+        // Scan all Kotlin source for string literals containing "KiddoLock".
+        // User-visible strings typically contain Hebrew characters, a space,
+        // a colon, or an emoji — flag those. Pure-ASCII identifiers used for
+        // internal WorkManager unique names + Log tags are OK and stay on
+        // the allow-list (changing them would orphan scheduled work on
+        // upgraded installs).
+        //
+        // This guards the leaks we fixed in NotificationUtils, HelpActivity,
+        // KiddoDeviceAdminReceiver and AdminPinActivity email subject — all
+        // were displayed to the user every day.
+        val srcDir = File("src/main/java").takeIf { it.isDirectory }
+            ?: File("app/src/main/java").takeIf { it.isDirectory }
+            ?: error("Could not locate src/main/java. cwd=${File(".").absolutePath}")
+
+        // Anything with Hebrew char, whitespace, colon, or bang is user-visible.
+        // Pure ASCII identifiers (KiddoLock_WeeklyReport, KiddoLockLogger, KiddoLockHeart)
+        // are internal and allowed.
+        val hebrewOrDisplay = Regex("""[\u0590-\u05FF\s:!]""")
+        // Match anything that looks like a Kotlin/Java string literal with KiddoLock inside.
+        val literal = Regex(""""([^"\n]*KiddoLock[^"\n]*)"""")
+
+        val violations = mutableListOf<String>()
+        srcDir.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { f ->
+                f.useLines { lines ->
+                    lines.forEachIndexed { idx, line ->
+                        // Skip comments and log statements (internal, not user-visible)
+                        val trimmed = line.trimStart()
+                        if (trimmed.startsWith("//") || trimmed.startsWith("*")) return@forEachIndexed
+                        if (Regex("""\bLog\.[diewv]\b""").containsMatchIn(line)) return@forEachIndexed
+                        literal.findAll(line).forEach { m ->
+                            val inner = m.groupValues[1]
+                            if (hebrewOrDisplay.containsMatchIn(inner)) {
+                                violations += "${f.path}:${idx + 1}: $inner"
+                            }
+                        }
+                    }
+                }
+            }
+
+        if (violations.isNotEmpty()) {
+            fail(
+                "Found ${violations.size} user-visible KiddoLock string literal(s) in Kotlin source. " +
+                    "Rename to SafeLock:\n" + violations.joinToString("\n")
+            )
+        }
+    }
+
+    @Test
     fun app_name_is_SafeLock() {
         val main = File(resDir, "values/strings.xml")
         val he = File(resDir, "values-he/strings.xml")
