@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Custom permission so only KiddoLock can send emergency broadcasts -->
     <permission
         android:name="com.kiddolock.app.ADMIN"
         android:protectionLevel="signature" />
@@ -23,16 +22,15 @@
         tools:ignore="ProtectedPermissions" />
 
     <application
-        android:name=".KiddoLockApp"
+        android:name=".SafeLockApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.KiddoLock"
+        android:theme="@style/Theme.SafeLock"
         tools:targetApi="31">
 
-        <!-- Device Admin Receiver (Anti-uninstall) -->
         <receiver
             android:name=".receivers.KiddoDeviceAdminReceiver"
             android:description="@string/device_admin_description"
@@ -49,7 +47,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Boot Receiver -->
         <receiver
             android:name=".receivers.BootReceiver"
             android:exported="true"
@@ -61,9 +58,8 @@
             </intent-filter>
         </receiver>
 
-        <!-- Accessibility Service (App Blocking + Time Enforcement) -->
         <service
-            android:name=".services.KiddoLockAccessibilityService"
+            android:name=".services.SafeLockAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:foregroundServiceType="dataSync"
             android:isAccessibilityTool="true"
@@ -76,53 +72,66 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- Main Dashboard -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".ui.SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.SafeLock">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Setup Wizard -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SafeLock" />
+
         <activity
             android:name=".ui.SetupActivity"
-            android:exported="true"
-            android:label="הגדרות ראשוניות"
-            android:theme="@style/Theme.KiddoLock" />
+            android:exported="false"
+            android:label="@string/setup_title"
+            android:theme="@style/Theme.SafeLock" />
 
-        <!-- Admin Dashboard -->
         <activity
             android:name=".ui.AdminActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.KiddoLock" />
+            android:theme="@style/Theme.SafeLock" />
 
-        <!-- Admin PIN -->
         <activity
             android:name=".ui.ParentInsightsActivity"
+            android:exported="false"
             android:label="@string/weekly_report_channel_name"
-            android:theme="@style/Theme.KiddoLock" />
-        
+            android:theme="@style/Theme.SafeLock" />
+
         <activity
             android:name=".ui.AdminPinActivity"
             android:exported="false"
-            android:label="אימות מנהל"
-            android:theme="@style/Theme.KiddoLock"
+            android:label="@string/admin_pin_title"
+            android:theme="@style/Theme.SafeLock"
             android:windowSoftInputMode="stateVisible" />
-
-
-
 
         <activity
             android:name=".ui.HelpActivity"
             android:exported="false"
-            android:label="עזרה ואודות"
-            android:theme="@style/Theme.KiddoLock" />
+            android:label="@string/permission_explanation_title"
+            android:theme="@style/Theme.SafeLock" />
 
-        <!-- Emergency Receiver -->
+        <activity
+            android:name=".ui.ContentFilterActivity"
+            android:exported="false"
+            android:label="@string/content_filter_title"
+            android:theme="@style/Theme.SafeLock" />
+
+        <activity
+            android:name=".ui.BlockedActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SafeLock.Overlay" />
+
         <receiver
             android:name=".receivers.EmergencyReceiver"
             android:exported="true">
@@ -136,7 +145,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Block Overlay Service -->
         <service
             android:name=".ui.OverlayService"
             android:exported="false" />
