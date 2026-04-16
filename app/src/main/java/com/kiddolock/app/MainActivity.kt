@@ -94,14 +94,16 @@ class MainActivity : AppCompatActivity() {
 
         // === PIN protection (only after setup is complete) ===
         if (!AdminPinManager.isPinSet(this) || !AdminPinManager.isAuthenticated()) {
-            val reason = if (!AdminPinManager.isPinSet(this)) "no PIN set" else "session expired"
-            Log.i(TAG, "MainActivity.onResume: $reason → AdminPinActivity")
-            isRedirectingAway = true
-            startActivity(
-                Intent(this, AdminPinActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-            )
+            if (!isRedirectingAway) {
+                val reason = if (!AdminPinManager.isPinSet(this)) "no PIN set" else "session expired"
+                Log.i(TAG, "MainActivity.onResume: $reason → AdminPinActivity")
+                isRedirectingAway = true
+                startActivity(
+                    Intent(this, AdminPinActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    }
+                )
+            }
             return
         }
         Log.i(TAG, "MainActivity.onResume: PIN ok — showing main UI")

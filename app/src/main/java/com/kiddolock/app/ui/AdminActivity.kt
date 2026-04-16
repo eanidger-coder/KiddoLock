@@ -96,16 +96,29 @@ class AdminActivity : AppCompatActivity() {
         updateSystemStatus()
     }
 
+    // Prevents stacking AdminPinActivity on top of itself when
+    // onStart() fires multiple times (e.g. after the user switches to
+    // another app and returns — onStop→onRestart→onStart). Without
+    // this guard, every onStart launches a new PinActivity instance,
+    // creating a tower of identical activities that all show a dark
+    // background → the user sees a "black screen" they can't escape.
+    private var pendingPinAuth = false
+
     override fun onStart() {
         super.onStart()
 
         if (!com.kiddolock.app.management.AdminPinManager.isAuthenticated()) {
-            isSessionAuthorized = false
-            val intent = Intent(this, AdminPinActivity::class.java).apply {
-                action = "com.kiddolock.app.ADMIN_AUTH"
+            if (!pendingPinAuth) {
+                pendingPinAuth = true
+                isSessionAuthorized = false
+                val intent = Intent(this, AdminPinActivity::class.java).apply {
+                    action = "com.kiddolock.app.ADMIN_AUTH"
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                startActivity(intent)
             }
-            startActivity(intent)
         } else {
+            pendingPinAuth = false
             isSessionAuthorized = true
             Log.d("AdminActivity", "Session active")
         }

@@ -108,18 +108,28 @@ class ContentClassifierTest {
     }
 
     @Test
-    fun hebrewFinalLetterNormalizationCatchesAllConjugations() {
-        // "להרביץ" (to beat, infinitive) should match because the sofit
-        // normalization turns ץ→צ, so both "מרביץ" and "להרביץ" share
-        // the stem "רביצ" after normalization.
+    fun hebrewVerbConjugationsAreCaught() {
+        // All common conjugation forms must be in the keyword database
+        // so they match via simple substring without normalization.
         val infinitive = classifier.classify("להרביץ ילדים")
-        assertTrue("infinitive form 'להרביץ' must be caught", infinitive.isBlocked)
+        assertTrue("infinitive 'להרביץ' must be caught", infinitive.isBlocked)
 
         val plural = classifier.classify("מרביצים ברחוב")
-        assertTrue("plural form 'מרביצים' must be caught", plural.isBlocked)
+        assertTrue("present plural 'מרביצים' must be caught", plural.isBlocked)
 
         val past = classifier.classify("הרביצו לו")
         assertTrue("past form 'הרביצו' must be caught", past.isBlocked)
+    }
+
+    @Test
+    fun safeHebrewWordsAreNotBlocked() {
+        // Regression: normalizeHebrew turned "דם"→"דמ" which matched
+        // "דמויות" (characters) — blocking harmless content.
+        val safe = classifier.classify("דמויות אהובות מהסרט")
+        assertFalse("'דמויות' (characters) must NOT trigger blood match", safe.isBlocked)
+
+        val human = classifier.classify("אדם רגיל בחיים")
+        assertFalse("'אדם' (human) must NOT trigger false positive", human.isBlocked)
     }
 
     @Test
