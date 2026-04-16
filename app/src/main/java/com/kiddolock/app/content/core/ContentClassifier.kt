@@ -58,6 +58,19 @@ class ContentClassifier {
             "פיצוץ", "מפוצץ", "להרוג", "מלחמות", "קרבות", "דם", "פצוע", "גופה", "מת",
             "אלימות בחברה", "קטטה", "דקירות", "דקירה", "מכות רצח", "מרביצים",
             "בועטים", "חונקים", "שורפים", "שריפה", "פיגוע", "טרור",
+            // Hebrew root stems — catch ALL conjugations via substring.
+            // e.g. "רביצ" matches מרביצים, להרביץ(→רביצ), הרביצו, ירביצו…
+            "רביצ",   // root of מרביץ (to beat)
+            "דקיר",   // root of דוקר/דקירה (to stab)
+            "חניק",   // root of חונק/חנק (to choke/strangle)
+            "בעיט",   // root of בועט/בעיטה (to kick)
+            "תקיפ",   // root of תוקף/תקיפה (to attack)
+            "רציח",   // root of רוצח/רצח (to murder)
+            "הריג",   // root of הורג/הריגה (to kill)
+            "יריה",   // root of יורה/ירייה (to shoot)
+            "שריפ",   // root of שורף/שריפה (fire/burn)
+            "פיגוע",  // terror attack
+            "פיצוצ",  // root of פיצוץ/פיצוצים (explosion)
             // Arabic
             "قتال", "ضرب", "عنف", "حرب",
             // Russian
@@ -75,6 +88,9 @@ class ContentClassifier {
             "טיפש", "מטומטם", "שונא", "שתוק", "מכוער", "שמן",
             "בוזז", "בריונות", "בריון", "קללה", "מקלל", "אידיוט",
             "טמבל", "דביל", "חמור",
+            // Hebrew stems
+            "קללה", "מקלל", "לקלל",  // curse — all forms
+            "בריונ",  // bully — בריון, בריונות, בריונים
             // Russian
             "тупой", "идиот", "ненависть", "заткнись", "дурак",
             "лузер", "уродливый", "толстый", "буллинг", "травля",
@@ -176,17 +192,29 @@ class ContentClassifier {
             "how to pick a lock", "how to steal",
             "balcony jump", "parkour fail", "parkour gone wrong",
             "electric shock", "outlet challenge",
+            "how to start a fire", "how to break in",
+            "how to run away", "run away from home",
+            "how to shoplift", "how to fight",
+            "playing with lighter", "playing with matches",
+            "roof challenge", "rooftop challenge",
             // Hebrew
             "לקפוץ מהגג", "קפיצה מגג", "קפיצה מהגג",
+            "קופצים מהגג", "קפצו מהגג", "קופץ מגג",
             "להצית אש", "לשחק באש", "משחקים באש",
+            "משחק באש", "שיחק באש", "הצית אש", "מצית אש",
             "אתגר אש", "אתגר מסוכן", "אתגר מטורף",
             "אתגר חנק", "אתגר התעלפות", "משחק מחנק",
             "גלישת רכבות", "גלישה על רכבת",
-            "איך לגנוב", "איך לפרוץ",
-            "קפיצה ממרפסת", "קפיצה מגובה",
-            "הלם חשמלי", "לגעת בחשמל",
+            "איך לגנוב", "איך לפרוץ", "איך לשרוף",
+            "איך להצית", "איך לעשות פצצה", "איך לעשות רעל",
+            "איך להכין פצצה", "איך להכין נשק",
+            "קפיצה ממרפסת", "קפיצה מגובה", "קפיצה מבניין",
+            "הלם חשמלי", "לגעת בחשמל", "לשחק עם חשמל",
             "מצת", "גפרורים", "שריפה בבית",
             "סכנת חיים", "פרקור נכשל",
+            "לכבות שריפה", "להדליק אש", "מדליק אש",
+            "לברוח מהבית", "לברוח מהשוטרים",
+            "הצתה", "מצית",
             // Russian
             "прыжок с крыши", "прыгнуть с крыши", "прыжок с балкона",
             "поджог", "играть с огнём", "огненный челлендж",
@@ -235,13 +263,26 @@ class ContentClassifier {
         "драка", "бой", "насилие", "кровь"
     )
 
+    /**
+     * Normalize Hebrew final letters (sofit) to their non-final forms so
+     * that substring matching catches all verb conjugations regardless of
+     * letter position.  e.g. "מרביץ" (final ץ) and "מרביצים" (medial צ)
+     * both normalize to contain "רביצ".
+     */
+    private fun normalizeHebrew(text: String): String = text
+        .replace('ץ', 'צ')
+        .replace('ך', 'כ')
+        .replace('ם', 'מ')
+        .replace('ן', 'נ')
+        .replace('ף', 'פ')
+
     fun classify(text: String): ContentScore {
-        val normalizedText = text.lowercase().trim()
+        val normalizedText = normalizeHebrew(text.lowercase().trim())
         val categoryMatches = mutableListOf<CategoryMatch>()
 
         for ((category, keywords) in keywordDatabase) {
             val matched = keywords.filter { keyword ->
-                val lower = keyword.lowercase()
+                val lower = normalizeHebrew(keyword.lowercase())
                 lower !in allowedOverrides && normalizedText.contains(lower)
             }
             if (matched.isNotEmpty()) {
@@ -259,7 +300,7 @@ class ContentClassifier {
         }
 
         val showMatches = violentShows.filter { show ->
-            val lower = show.lowercase()
+            val lower = normalizeHebrew(show.lowercase())
             lower !in allowedOverrides && normalizedText.contains(lower)
         }
         if (showMatches.isNotEmpty()) {
@@ -273,7 +314,7 @@ class ContentClassifier {
         }
 
         val customMatches = customBlacklist.filter { custom ->
-            normalizedText.contains(custom.lowercase())
+            normalizedText.contains(normalizeHebrew(custom.lowercase()))
         }
         if (customMatches.isNotEmpty()) {
             categoryMatches.add(

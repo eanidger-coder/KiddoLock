@@ -108,6 +108,36 @@ class ContentClassifierTest {
     }
 
     @Test
+    fun hebrewFinalLetterNormalizationCatchesAllConjugations() {
+        // "להרביץ" (to beat, infinitive) should match because the sofit
+        // normalization turns ץ→צ, so both "מרביץ" and "להרביץ" share
+        // the stem "רביצ" after normalization.
+        val infinitive = classifier.classify("להרביץ ילדים")
+        assertTrue("infinitive form 'להרביץ' must be caught", infinitive.isBlocked)
+
+        val plural = classifier.classify("מרביצים ברחוב")
+        assertTrue("plural form 'מרביצים' must be caught", plural.isBlocked)
+
+        val past = classifier.classify("הרביצו לו")
+        assertTrue("past form 'הרביצו' must be caught", past.isBlocked)
+    }
+
+    @Test
+    fun dangerousActivitiesAreCaught() {
+        val fire = classifier.classify("איך להצית אש בבית")
+        assertTrue("fire-starting content must block", fire.isBlocked)
+        assertTrue(fire.categories.any {
+            it.category == ContentClassifier.Category.DANGEROUS_ACTIVITIES
+        })
+
+        val roof = classifier.classify("jump off roof challenge")
+        assertTrue("roof jumping must block", roof.isBlocked)
+
+        val fireRu = classifier.classify("играть с огнём дома")
+        assertTrue("Russian fire-play must block", fireRu.isBlocked)
+    }
+
+    @Test
     fun allowedOverridesSkipBuiltInKeywords() {
         // "battle" is in VIOLENCE_PHYSICAL by default. Pokémon content uses
         // the word constantly — without an override the filter would carpet-
