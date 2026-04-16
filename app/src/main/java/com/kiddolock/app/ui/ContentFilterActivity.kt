@@ -90,6 +90,8 @@ class ContentFilterActivity : AppCompatActivity() {
             getString(R.string.content_filter_category_weapons)
         ContentClassifier.Category.DARK_THEMES ->
             getString(R.string.content_filter_category_dark_themes)
+        ContentClassifier.Category.DANGEROUS_ACTIVITIES ->
+            getString(R.string.content_filter_category_dangerous_activities)
     }
 
     private fun buildCategorySection(title: String, words: List<String>): View {

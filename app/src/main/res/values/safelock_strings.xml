@@ -27,6 +27,7 @@
     <string name="content_filter_category_elsagate">תוכן מטעה</string>
     <string name="content_filter_category_weapons">נשק</string>
     <string name="content_filter_category_dark_themes">נושאים אפלים</string>
+    <string name="content_filter_category_dangerous_activities">פעילויות מסוכנות</string>
     <string name="content_filter_category_violent_shows">תוכניות אלימות</string>
     <string name="content_filter_defaults_expand">הצג</string>
     <string name="content_filter_defaults_collapse">הסתר</string>
@@ -63,4 +64,5 @@
     <string name="block_reason_escalation">זוהה דפוס הסלמה בתוכן</string>
     <string name="block_reason_channel">הערוץ מסומן ברשימה השחורה</string>
     <string name="block_reason_combined">שילוב של גורמי סיכון</string>
+    <string name="block_reason_dangerous">זוהה תוכן המעודד פעילות מסוכנת</string>
 </resources>

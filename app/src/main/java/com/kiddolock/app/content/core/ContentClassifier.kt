@@ -27,7 +27,8 @@ class ContentClassifier {
         HORROR_KIDS(1.0f, "אימה לילדים"),
         ELSAGATE(1.0f, "תוכן מטעה"),
         WEAPONS(0.7f, "נשק"),
-        DARK_THEMES(0.85f, "נושאים אפלים");
+        DARK_THEMES(0.85f, "נושאים אפלים"),
+        DANGEROUS_ACTIVITIES(0.95f, "פעילויות מסוכנות");
     }
 
     // Threshold can be adjusted by parent (strict=0.3, balanced=0.5, relaxed=0.7)
@@ -58,18 +59,30 @@ class ContentClassifier {
             "אלימות בחברה", "קטטה", "דקירות", "דקירה", "מכות רצח", "מרביצים",
             "בועטים", "חונקים", "שורפים", "שריפה", "פיגוע", "טרור",
             // Arabic
-            "قتال", "ضرب", "عنف", "حرب"
+            "قتال", "ضرب", "عنف", "حرب",
+            // Russian
+            "драка", "удар", "бить", "побои", "нападение", "убить",
+            "убийство", "стрелять", "ножевое", "душить", "бой",
+            "война", "кровь", "насилие", "жестокость", "ранение",
+            "взрыв", "террор", "пинок", "избиение", "мордобой"
         ),
 
         Category.VIOLENCE_VERBAL to listOf(
+            // English
             "stupid", "idiot", "hate", "shut up", "dumb", "loser",
             "ugly", "fat", "bully", "bullying", "mean", "curse",
+            // Hebrew
             "טיפש", "מטומטם", "שונא", "שתוק", "מכוער", "שמן",
             "בוזז", "בריונות", "בריון", "קללה", "מקלל", "אידיוט",
-            "טמבל", "דביל", "חמור"
+            "טמבל", "דביל", "חמור",
+            // Russian
+            "тупой", "идиот", "ненависть", "заткнись", "дурак",
+            "лузер", "уродливый", "толстый", "буллинг", "травля",
+            "обзывать", "ругательство", "дебил"
         ),
 
         Category.HORROR_KIDS to listOf(
+            // English
             "huggy wuggy", "poppy playtime", "mommy long legs",
             "catnap", "dogday", "smiling critters",
             "skibidi", "skibidi toilet",
@@ -80,16 +93,25 @@ class ContentClassifier {
             "fnaf", "five nights at freddy", "freddy fazbear",
             "jumpscare", "creepypasta", "slenderman",
             "trevor henderson", "backrooms",
+            // Hebrew
             "האגי ואגי", "פופי פלייטיים", "אמא רגליים ארוכות",
             "סקיבידי", "סקיבידי טוילט",
             "ראש סירנה", "חתול מצויר",
             "באלדי", "גראני", "גראני משחק",
             "באנבאן", "גארטן אוף באנבאן",
             "פרדי", "חמש לילות אצל פרדי",
-            "ג'אמפסקר", "סלנדרמן"
+            "ג'אמפסקר", "סלנדרמן",
+            // Russian
+            "хагги вагги", "попи плейтайм", "мамочка длинные ноги",
+            "скибиди", "скибиди туалет",
+            "сиреноголовый", "мультяшный кот",
+            "балди", "гренни", "бан бан",
+            "фредди", "пять ночей с фредди",
+            "джампскейр", "крипипаста", "слендермен"
         ),
 
         Category.ELSAGATE to listOf(
+            // English
             "elsa injection", "elsa pregnant", "spiderman pregnant",
             "pregnant elsa", "bad baby", "bad babies",
             "joker prank", "joker vs", "evil elsa",
@@ -98,29 +120,84 @@ class ContentClassifier {
             "finger family gone wrong", "wrong heads",
             "learn colors gone wrong", "surprise egg horror",
             "johny johny scary", "cocomelon scary",
+            // Hebrew
             "אלזה הזרקה", "ספיידרמן בהריון", "תינוק רע",
-            "ג'וקר נגד", "אלזה רעה", "אתגר קקי"
+            "ג'וקר נגד", "אלזה רעה", "אתגר קקי",
+            // Russian
+            "эльза укол", "эльза беременна", "спайдермен беременный",
+            "плохой ребёнок", "джокер пранк", "злая эльза",
+            "какашки челлендж"
         ),
 
         Category.WEAPONS to listOf(
+            // English
             "gun", "rifle", "pistol", "sword", "knife", "weapon",
             "bomb", "grenade", "missile", "sniper", "shotgun",
             "machine gun", "ak47", "ak-47",
+            // Hebrew
             "אקדח", "רובה", "חרב", "סכין", "נשק", "פצצה",
-            "רימון", "טיל", "צלף", "מקלע"
+            "רימון", "טיל", "צלף", "מקלע",
+            // Russian
+            "пистолет", "ружьё", "винтовка", "автомат", "меч",
+            "нож", "оружие", "бомба", "граната", "ракета",
+            "снайпер", "дробовик", "пулемёт"
         ),
 
         Category.DARK_THEMES to listOf(
+            // English
             "death", "dead", "die", "dying", "funeral", "grave",
             "ghost", "demon", "devil", "hell", "torture",
             "kidnap", "kidnapping", "suicide", "poison",
             "nightmare", "scared", "terrified", "horror",
             "huggy wuggy", "skibidi toilet", "momo", "blue monster",
             "jumpscare", "scary compilation", "creepy pasta",
+            // Hebrew
             "מוות", "מת", "גוסס", "לוויה", "קבר", "רוח רפאים",
             "שד", "שטן", "גיהנם", "עינויים", "חטיפה",
             "התאבדות", "רעל", "סיוט", "אימה", "פחד",
-            "האגי וואגי", "סקיבידי טואלט", "מפחיד מאוד", "קריפי"
+            "האגי וואגי", "סקיבידי טואלט", "מפחיד מאוד", "קריפי",
+            // Russian
+            "смерть", "мёртвый", "умереть", "похороны", "могила",
+            "призрак", "демон", "дьявол", "ад", "пытки",
+            "похищение", "суицид", "яд", "кошмар", "ужас",
+            "страшно", "жуткий", "крипи"
+        ),
+
+        Category.DANGEROUS_ACTIVITIES to listOf(
+            // English — videos teaching kids to do dangerous stunts
+            "jump off roof", "jump from roof", "rooftop jump",
+            "set fire", "play with fire", "fire challenge",
+            "lighter trick", "matches trick", "burn challenge",
+            "tide pod challenge", "bleach challenge", "drink bleach",
+            "choking game", "blackout challenge", "pass out challenge",
+            "train surfing", "subway surfing", "car surfing",
+            "dangerous challenge", "deadly challenge", "extreme dare",
+            "how to make a bomb", "how to make poison",
+            "how to pick a lock", "how to steal",
+            "balcony jump", "parkour fail", "parkour gone wrong",
+            "electric shock", "outlet challenge",
+            // Hebrew
+            "לקפוץ מהגג", "קפיצה מגג", "קפיצה מהגג",
+            "להצית אש", "לשחק באש", "משחקים באש",
+            "אתגר אש", "אתגר מסוכן", "אתגר מטורף",
+            "אתגר חנק", "אתגר התעלפות", "משחק מחנק",
+            "גלישת רכבות", "גלישה על רכבת",
+            "איך לגנוב", "איך לפרוץ",
+            "קפיצה ממרפסת", "קפיצה מגובה",
+            "הלם חשמלי", "לגעת בחשמל",
+            "מצת", "גפרורים", "שריפה בבית",
+            "סכנת חיים", "פרקור נכשל",
+            // Russian
+            "прыжок с крыши", "прыгнуть с крыши", "прыжок с балкона",
+            "поджог", "играть с огнём", "огненный челлендж",
+            "зажигалка трюк", "спички трюк",
+            "опасный челлендж", "смертельный челлендж",
+            "удушение игра", "игра в обморок",
+            "зацепер", "сёрфинг на поезде", "сёрфинг на крыше",
+            "как сделать бомбу", "как сделать яд",
+            "как украсть", "как взломать",
+            "паркур неудача", "паркур провал",
+            "удар током", "электрошок"
         )
     )
 
@@ -147,7 +224,15 @@ class ContentClassifier {
         "הנוקמים קרב", "האלק מנפץ", "האלק כועס",
         "בן 10 נלחם", "נינג'גו קרב", "יובל המבולבל",
         "huggy wuggy", "האגי וואגי", "skibidi toilet", "סקיבידי טואלט",
-        "מכות", "קרב", "אלימות", "דם", "סירנה"
+        "מכות", "קרב", "אלימות", "דם", "סירנה",
+        // Russian
+        "черепашки ниндзя бой", "черепашки ниндзя драка",
+        "наруто бой", "наруто драка", "наруто против",
+        "драгон болл бой", "человек паук бой", "человек паук против",
+        "бэтмен бой", "бэтмен против", "мстители бой",
+        "халк крушит", "халк злится", "мортал комбат",
+        "хагги вагги", "скибиди туалет",
+        "драка", "бой", "насилие", "кровь"
     )
 
     fun classify(text: String): ContentScore {
