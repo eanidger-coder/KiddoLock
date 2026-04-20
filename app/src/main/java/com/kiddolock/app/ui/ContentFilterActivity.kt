@@ -2,261 +2,222 @@ package com.kiddolock.app.ui
 
 import android.app.AlertDialog
 import android.os.Bundle
-import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.RadioButton
 import android.widget.RadioGroup
-import android.widget.Switch
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
 import com.kiddolock.app.R
-import com.kiddolock.app.SafeLockApp
 import com.kiddolock.app.content.ContentPreferences
+import com.kiddolock.app.content.SafeLockDatabase
 import com.kiddolock.app.content.core.ContentClassifier
 import com.kiddolock.app.content.entities.BlacklistedChannel
 import com.kiddolock.app.content.entities.BlacklistedKeyword
-import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * ContentFilterActivity — parent-facing screen for configuring the SafeKids
- * content-filter sub-module of SafeLock.
+ * ContentFilterActivity — Parent-facing configuration UI for the SafeKids
+ * content filter sub-module inside SafeLock.
  *
  * Features:
- *   - Toggle the filter on/off
- *   - Sensitivity level selector (strict / balanced / relaxed)
- *   - Add / remove blacklisted channels and keywords
- *   - View total block count
+ *  - Enable/disable toggle for the YouTube filter engine
+ *  - Sensitivity selector (STRICT / BALANCED / RELAXED)
+ *  - Lifetime block count display
+ *  - Managed list of blacklisted channels
+ *  - Managed list of blacklisted keywords
  *
- * Reached from AdminActivity's "Content Filter" tab.
+ * Called from AdminActivity after PIN verification, so this screen itself
+ * does not re-verify the PIN.
  */
 class ContentFilterActivity : AppCompatActivity() {
 
     private lateinit var prefs: ContentPreferences
+    private lateinit var db: SafeLockDatabase
+
+    private lateinit var switchEnabled: SwitchCompat
+    private lateinit var tvFilterStatus: TextView
+    private lateinit var tvBlockCount: TextView
+    private lateinit var rgSensitivity: RadioGroup
+    private lateinit var rbStrict: RadioButton
+    private lateinit var rbBalanced: RadioButton
+    private lateinit var rbRelaxed: RadioButton
+
+    private lateinit var etNewChannel: EditText
+    private lateinit var btnAddChannel: MaterialButton
+    private lateinit var containerChannels: LinearLayout
+    private lateinit var tvChannelsEmpty: TextView
+
+    private lateinit var etNewKeyword: EditText
+    private lateinit var btnAddKeyword: MaterialButton
+    private lateinit var containerKeywords: LinearLayout
+    private lateinit var tvKeywordsEmpty: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_content_filter)
 
         prefs = ContentPreferences(this)
+        db = SafeLockDatabase.getInstance(this)
 
-        bindToggle()
-        bindSensitivity()
-        bindBlockCount()
-        bindChannelsList()
-        bindKeywordsList()
-        bindAddButtons()
-        bindDefaultKeywords()
+        bindViews()
+        applyInitialState()
+        wireListeners()
+        observeBlacklists()
     }
 
-    /**
-     * Render the hard-coded keyword database so the parent can review every
-     * built-in word and un-block individual items (e.g. "battle" when the
-     * child is watching Pokémon). Toggling a word writes to
-     * [ContentPreferences.allowedOverrides]; [ContentClassifier] skips
-     * anything present in that set at classify time.
-     */
-    private fun bindDefaultKeywords() {
-        val container = findViewById<LinearLayout>(R.id.listDefaults) ?: return
-        container.removeAllViews()
+    private fun bindViews() {
+        switchEnabled = findViewById(R.id.switchFilterEnabled)
+        tvFilterStatus = findViewById(R.id.tvFilterStatus)
+        tvBlockCount = findViewById(R.id.tvBlockCount)
+        rgSensitivity = findViewById(R.id.rgSensitivity)
+        rbStrict = findViewById(R.id.rbStrict)
+        rbBalanced = findViewById(R.id.rbBalanced)
+        rbRelaxed = findViewById(R.id.rbRelaxed)
 
-        val classifier = ContentClassifier()
-        val defaults: List<Pair<String, List<String>>> =
-            classifier.defaultKeywords().map { (cat, words) ->
-                categoryLabel(cat) to words
-            } + listOf(
-                getString(R.string.content_filter_category_violent_shows) to classifier.defaultViolentShows()
-            )
+        etNewChannel = findViewById(R.id.etNewChannel)
+        btnAddChannel = findViewById(R.id.btnAddChannel)
+        containerChannels = findViewById(R.id.containerChannels)
+        tvChannelsEmpty = findViewById(R.id.tvChannelsEmpty)
 
-        defaults.forEach { (title, words) ->
-            container.addView(buildCategorySection(title, words))
-        }
+        etNewKeyword = findViewById(R.id.etNewKeyword)
+        btnAddKeyword = findViewById(R.id.btnAddKeyword)
+        containerKeywords = findViewById(R.id.containerKeywords)
+        tvKeywordsEmpty = findViewById(R.id.tvKeywordsEmpty)
     }
 
-    private fun categoryLabel(category: ContentClassifier.Category): String = when (category) {
-        ContentClassifier.Category.VIOLENCE_PHYSICAL ->
-            getString(R.string.content_filter_category_violence_physical)
-        ContentClassifier.Category.VIOLENCE_VERBAL ->
-            getString(R.string.content_filter_category_violence_verbal)
-        ContentClassifier.Category.HORROR_KIDS ->
-            getString(R.string.content_filter_category_horror_kids)
-        ContentClassifier.Category.ELSAGATE ->
-            getString(R.string.content_filter_category_elsagate)
-        ContentClassifier.Category.WEAPONS ->
-            getString(R.string.content_filter_category_weapons)
-        ContentClassifier.Category.DARK_THEMES ->
-            getString(R.string.content_filter_category_dark_themes)
-        ContentClassifier.Category.DANGEROUS_ACTIVITIES ->
-            getString(R.string.content_filter_category_dangerous_activities)
-    }
+    private fun applyInitialState() {
+        val enabled = prefs.contentFilterEnabled
+        switchEnabled.isChecked = enabled
+        tvFilterStatus.setText(
+            if (enabled) R.string.content_filter_enabled
+            else R.string.content_filter_disabled
+        )
 
-    private fun buildCategorySection(title: String, words: List<String>): View {
-        val wrap = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 16 }
+        when (prefs.sensitivityLevel) {
+            ContentClassifier.SensitivityLevel.STRICT -> rbStrict.isChecked = true
+            ContentClassifier.SensitivityLevel.BALANCED -> rbBalanced.isChecked = true
+            ContentClassifier.SensitivityLevel.RELAXED -> rbRelaxed.isChecked = true
         }
 
-        val header = TextView(this).apply {
-            text = "▸  $title  (${words.size})"
-            textSize = 16f
-            setTextColor(getColor(R.color.safelock_text_primary))
-            setPadding(8, 12, 8, 12)
-        }
-        wrap.addView(header)
-
-        val body = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = View.GONE
-            setPadding(8, 0, 8, 0)
-        }
-        words.forEach { word -> body.addView(buildWordRow(word)) }
-        wrap.addView(body)
-
-        header.setOnClickListener {
-            val collapsed = body.visibility == View.GONE
-            body.visibility = if (collapsed) View.VISIBLE else View.GONE
-            header.text = (if (collapsed) "▾  " else "▸  ") + title + "  (${words.size})"
-        }
-        return wrap
-    }
-
-    private fun buildWordRow(word: String): View {
-        val row = TextView(this).apply {
-            textSize = 15f
-            setPadding(24, 10, 24, 10)
-            gravity = Gravity.START
-        }
-        applyWordRowState(row, word)
-        row.setOnClickListener {
-            val current = prefs.allowedOverrides
-            val key = word.lowercase().trim()
-            prefs.allowedOverrides = if (key in current) current - key else current + key
-            applyWordRowState(row, word)
-        }
-        return row
-    }
-
-    private fun applyWordRowState(row: TextView, word: String) {
-        val allowed = word.lowercase().trim() in prefs.allowedOverrides
-        row.text = if (allowed) "✗  $word  (מותר)" else "✓  $word  (חסום)"
-        row.setTextColor(
-            getColor(if (allowed) R.color.safelock_text_secondary else R.color.safelock_text_primary)
+        tvBlockCount.text = getString(
+            R.string.content_filter_blocks_count,
+            prefs.lifetimeBlockCount
         )
     }
 
-    private fun bindToggle() {
-        val toggle = findViewById<Switch>(R.id.switchContentFilter)
-        toggle.isChecked = prefs.contentFilterEnabled
-        toggle.setOnCheckedChangeListener { _, isChecked ->
+    private fun wireListeners() {
+        switchEnabled.setOnCheckedChangeListener { _, isChecked ->
             prefs.contentFilterEnabled = isChecked
+            tvFilterStatus.setText(
+                if (isChecked) R.string.content_filter_enabled
+                else R.string.content_filter_disabled
+            )
         }
-    }
 
-    private fun bindSensitivity() {
-        val group = findViewById<RadioGroup>(R.id.groupSensitivity)
-        val initial = when (prefs.sensitivityLevel) {
-            ContentClassifier.SensitivityLevel.STRICT -> R.id.radioStrict
-            ContentClassifier.SensitivityLevel.BALANCED -> R.id.radioBalanced
-            ContentClassifier.SensitivityLevel.RELAXED -> R.id.radioRelaxed
-        }
-        group.check(initial)
-        group.setOnCheckedChangeListener { _, checkedId ->
+        rgSensitivity.setOnCheckedChangeListener { _, checkedId ->
             prefs.sensitivityLevel = when (checkedId) {
-                R.id.radioStrict -> ContentClassifier.SensitivityLevel.STRICT
-                R.id.radioRelaxed -> ContentClassifier.SensitivityLevel.RELAXED
+                R.id.rbStrict -> ContentClassifier.SensitivityLevel.STRICT
+                R.id.rbRelaxed -> ContentClassifier.SensitivityLevel.RELAXED
                 else -> ContentClassifier.SensitivityLevel.BALANCED
             }
         }
+
+        btnAddChannel.setOnClickListener {
+            val name = etNewChannel.text.toString().trim()
+            if (name.isEmpty()) return@setOnClickListener
+            lifecycleScope.launch(Dispatchers.IO) {
+                db.blacklistDao().insertChannel(BlacklistedChannel(channelName = name))
+                withContext(Dispatchers.Main) { etNewChannel.text.clear() }
+            }
+        }
+
+        btnAddKeyword.setOnClickListener {
+            val kw = etNewKeyword.text.toString().trim()
+            if (kw.isEmpty()) return@setOnClickListener
+            lifecycleScope.launch(Dispatchers.IO) {
+                db.blacklistDao().insertKeyword(BlacklistedKeyword(keyword = kw))
+                withContext(Dispatchers.Main) { etNewKeyword.text.clear() }
+            }
+        }
     }
 
-    private fun bindBlockCount() {
-        val counter = findViewById<TextView>(R.id.tvBlockCount)
-        counter.text = getString(R.string.content_filter_blocks_count, prefs.lifetimeBlockCount)
-    }
-
-    private fun bindChannelsList() {
-        val container = findViewById<LinearLayout>(R.id.listChannels)
-        val dao = SafeLockApp.get().database.blacklistDao()
+    private fun observeBlacklists() {
         lifecycleScope.launch {
-            dao.getAllChannels().collectLatest { channels ->
-                container.removeAllViews()
-                channels.forEach { channel ->
-                    container.addView(rowView(channel.channelName) {
-                        lifecycleScope.launch(Dispatchers.IO) { dao.deleteChannel(channel) }
-                    })
-                }
+            db.blacklistDao().getAllChannels().collectLatest { channels ->
+                renderChannels(channels)
             }
         }
-    }
-
-    private fun bindKeywordsList() {
-        val container = findViewById<LinearLayout>(R.id.listKeywords)
-        val dao = SafeLockApp.get().database.blacklistDao()
         lifecycleScope.launch {
-            dao.getAllKeywords().collectLatest { keywords ->
-                container.removeAllViews()
-                keywords.forEach { keyword ->
-                    container.addView(rowView(keyword.keyword) {
-                        lifecycleScope.launch(Dispatchers.IO) { dao.deleteKeyword(keyword) }
-                    })
-                }
+            db.blacklistDao().getAllKeywords().collectLatest { keywords ->
+                renderKeywords(keywords)
             }
         }
     }
 
-    private fun rowView(label: String, onRemove: () -> Unit): TextView {
-        val tv = TextView(this)
-        tv.text = "• $label   ✕"
-        tv.textSize = 16f
-        tv.setTextColor(getColor(R.color.safelock_text_primary))
-        tv.setPadding(24, 16, 24, 16)
-        tv.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setMessage(getString(R.string.content_filter_remove_confirm, label))
-                .setPositiveButton(android.R.string.ok) { _, _ -> onRemove() }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+    private fun renderChannels(channels: List<BlacklistedChannel>) {
+        containerChannels.removeAllViews()
+        if (channels.isEmpty()) {
+            tvChannelsEmpty.visibility = View.VISIBLE
+            return
         }
-        return tv
-    }
-
-    private fun bindAddButtons() {
-        val dao = SafeLockApp.get().database.blacklistDao()
-
-        findViewById<MaterialButton>(R.id.btnAddChannel).setOnClickListener {
-            promptForText(getString(R.string.content_filter_add_channel)) { value ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    dao.insertChannel(BlacklistedChannel(channelName = value))
-                }
+        tvChannelsEmpty.visibility = View.GONE
+        val inflater = LayoutInflater.from(this)
+        for (channel in channels) {
+            val row = inflater.inflate(R.layout.row_blacklist_item, containerChannels, false)
+            row.findViewById<TextView>(R.id.tvItemLabel).text = channel.channelName
+            row.findViewById<View>(R.id.btnRemoveItem).setOnClickListener {
+                confirmRemoveChannel(channel)
             }
-        }
-
-        findViewById<MaterialButton>(R.id.btnAddKeyword).setOnClickListener {
-            promptForText(getString(R.string.content_filter_add_keyword)) { value ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    dao.insertKeyword(BlacklistedKeyword(keyword = value))
-                }
-            }
+            containerChannels.addView(row)
         }
     }
 
-    private fun promptForText(title: String, onConfirm: (String) -> Unit) {
-        val input = EditText(this).apply {
-            setPadding(32, 16, 32, 16)
+    private fun renderKeywords(keywords: List<BlacklistedKeyword>) {
+        containerKeywords.removeAllViews()
+        if (keywords.isEmpty()) {
+            tvKeywordsEmpty.visibility = View.VISIBLE
+            return
         }
+        tvKeywordsEmpty.visibility = View.GONE
+        val inflater = LayoutInflater.from(this)
+        for (kw in keywords) {
+            val row = inflater.inflate(R.layout.row_blacklist_item, containerKeywords, false)
+            row.findViewById<TextView>(R.id.tvItemLabel).text = kw.keyword
+            row.findViewById<View>(R.id.btnRemoveItem).setOnClickListener {
+                confirmRemoveKeyword(kw)
+            }
+            containerKeywords.addView(row)
+        }
+    }
+
+    private fun confirmRemoveChannel(channel: BlacklistedChannel) {
         AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(input)
+            .setMessage(getString(R.string.content_filter_remove_confirm, channel.channelName))
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val value = input.text.toString().trim()
-                if (value.isNotEmpty()) onConfirm(value)
+                lifecycleScope.launch(Dispatchers.IO) {
+                    db.blacklistDao().deleteChannel(channel)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmRemoveKeyword(keyword: BlacklistedKeyword) {
+        AlertDialog.Builder(this)
+            .setMessage(getString(R.string.content_filter_remove_confirm, keyword.keyword))
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    db.blacklistDao().deleteKeyword(keyword)
+                }
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

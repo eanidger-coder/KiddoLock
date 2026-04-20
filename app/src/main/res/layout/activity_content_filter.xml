@@ -3,261 +3,251 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_dark_gradient"
+    android:background="@color/bg_dark"
     android:fillViewport="true"
-    android:layoutDirection="rtl">
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:orientation="vertical">
 
-        <!-- Header -->
+        <!-- Title -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/content_filter_title"
-            android:textColor="@color/safelock_text_primary"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+            android:textColor="@color/text_primary"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
             android:text="@string/content_filter_subtitle"
-            android:textColor="@color/safelock_text_secondary"
-            android:textSize="14sp" />
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:layout_marginBottom="16dp" />
 
-        <!-- Enable toggle card -->
-        <com.google.android.material.card.MaterialCardView
+        <!-- Enable / Disable card -->
+        <androidx.cardview.widget.CardView
+            style="@style/GlassCard"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            app:cardBackgroundColor="@color/safelock_glass_background"
-            app:cardCornerRadius="20dp"
-            app:strokeColor="@color/safelock_glass_outline"
-            app:strokeWidth="1dp">
+            android:layout_height="wrap_content">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="20dp">
+                android:gravity="center_vertical">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
                     android:layout_weight="1"
-                    android:text="@string/content_filter_toggle_label"
-                    android:textColor="@color/safelock_text_primary"
-                    android:textSize="16sp" />
-
-                <Switch
-                    android:id="@+id/switchContentFilter"
-                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
-                    android:theme="@style/Theme.SafeLock" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Sensitivity card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/safelock_glass_background"
-            app:cardCornerRadius="20dp"
-            app:strokeColor="@color/safelock_glass_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/content_filter_sensitivity"
-                    android:textColor="@color/safelock_text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <RadioGroup
-                    android:id="@+id/groupSensitivity"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
                     android:orientation="vertical">
 
-                    <RadioButton
-                        android:id="@+id/radioStrict"
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/sensitivity_strict"
-                        android:textColor="@color/safelock_text_primary" />
+                        android:text="@string/content_filter_toggle_label"
+                        android:textColor="@color/text_primary"
+                        android:textStyle="bold"
+                        android:textSize="16sp" />
 
-                    <RadioButton
-                        android:id="@+id/radioBalanced"
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:id="@+id/tvFilterStatus"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/sensitivity_balanced"
-                        android:textColor="@color/safelock_text_primary" />
+                        android:text="@string/content_filter_enabled"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
 
-                    <RadioButton
-                        android:id="@+id/radioRelaxed"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/sensitivity_relaxed"
-                        android:textColor="@color/safelock_text_primary" />
-                </RadioGroup>
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchFilterEnabled"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </androidx.cardview.widget.CardView>
 
-        <!-- Block count -->
+        <!-- Lifetime block count -->
         <TextView
             android:id="@+id/tvBlockCount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:textColor="@color/safelock_primary"
+            android:textColor="@color/text_secondary"
             android:textSize="14sp"
-            android:textStyle="bold"
-            tools:ignore="UnusedAttribute"
-            xmlns:tools="http://schemas.android.com/tools" />
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
 
-        <!-- Channels card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
+        <!-- Sensitivity -->
+        <TextView
+            style="@style/SectionTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/safelock_glass_background"
-            app:cardCornerRadius="20dp"
-            app:strokeColor="@color/safelock_glass_outline"
-            app:strokeWidth="1dp">
+            android:text="@string/content_filter_sensitivity" />
 
+        <androidx.cardview.widget.CardView
+            style="@style/GlassCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <RadioGroup
+                android:id="@+id/rgSensitivity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rbStrict"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="׳׳—׳׳™׳¨ (׳—׳•׳¡׳ ׳’׳ ׳—׳©׳“ ׳§׳)"
+                    android:textColor="@color/text_primary"
+                    android:buttonTint="@color/cyan_accent" />
+
+                <RadioButton
+                    android:id="@+id/rbBalanced"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="׳׳׳•׳–׳ (׳׳•׳׳׳¥)"
+                    android:textColor="@color/text_primary"
+                    android:buttonTint="@color/cyan_accent"
+                    android:checked="true" />
+
+                <RadioButton
+                    android:id="@+id/rbRelaxed"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="׳¡׳׳—׳ ׳™ (׳—׳•׳¡׳ ׳¨׳§ ׳׳§׳¨׳™׳ ׳‘׳¨׳•׳¨׳™׳)"
+                    android:textColor="@color/text_primary"
+                    android:buttonTint="@color/cyan_accent" />
+            </RadioGroup>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Blacklisted channels -->
+        <TextView
+            style="@style/SectionTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/content_filter_channels" />
+
+        <androidx.cardview.widget.CardView
+            style="@style/GlassCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/content_filter_channels"
-                    android:textColor="@color/safelock_text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                android:orientation="vertical">
 
                 <LinearLayout
-                    android:id="@+id/listChannels"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/etNewChannel"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:hint="׳©׳ ׳¢׳¨׳•׳¥ ׳׳—׳¡׳™׳׳”"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
+                        android:inputType="text"
+                        android:maxLines="1" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAddChannel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="׳”׳•׳¡׳£"
+                        app:backgroundTint="@color/cyan_accent" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvChannelsEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="׳׳™׳ ׳¢׳¨׳•׳¦׳™׳ ׳—׳¡׳•׳׳™׳"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:visibility="visible" />
+
+                <LinearLayout
+                    android:id="@+id/containerChannels"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:orientation="vertical" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnAddChannel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:backgroundTint="@color/safelock_secondary"
-                    android:text="@string/content_filter_add_channel"
-                    android:textColor="@color/safelock_on_background"
-                    app:cornerRadius="16dp" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </androidx.cardview.widget.CardView>
 
-        <!-- Defaults card: built-in keyword list, toggle per word -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
+        <!-- Blacklisted keywords -->
+        <TextView
+            style="@style/SectionTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/safelock_glass_background"
-            app:cardCornerRadius="20dp"
-            app:strokeColor="@color/safelock_glass_outline"
-            app:strokeWidth="1dp">
+            android:text="@string/content_filter_keywords" />
 
+        <androidx.cardview.widget.CardView
+            style="@style/GlassCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/content_filter_defaults_title"
-                    android:textColor="@color/safelock_text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/content_filter_defaults_subtitle"
-                    android:textColor="@color/safelock_text_secondary"
-                    android:textSize="13sp" />
+                android:orientation="vertical">
 
                 <LinearLayout
-                    android:id="@+id/listDefaults"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/etNewKeyword"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:hint="׳׳™׳׳× ׳׳₪׳×׳— ׳׳—׳¡׳™׳׳”"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
+                        android:inputType="text"
+                        android:maxLines="1" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAddKeyword"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="׳”׳•׳¡׳£"
+                        app:backgroundTint="@color/cyan_accent" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvKeywordsEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="׳׳™׳ ׳׳™׳׳•׳× ׳׳₪׳×׳— ׳׳•׳×׳׳׳•׳× ׳׳™׳©׳™׳×"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:visibility="visible" />
+
+                <LinearLayout
+                    android:id="@+id/containerKeywords"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:orientation="vertical" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </androidx.cardview.widget.CardView>
 
-        <!-- Keywords card -->
-        <com.google.android.material.card.MaterialCardView
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:cardBackgroundColor="@color/safelock_glass_background"
-            app:cardCornerRadius="20dp"
-            app:strokeColor="@color/safelock_glass_outline"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/content_filter_keywords"
-                    android:textColor="@color/safelock_text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:id="@+id/listKeywords"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="vertical" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnAddKeyword"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:backgroundTint="@color/safelock_secondary"
-                    android:text="@string/content_filter_add_keyword"
-                    android:textColor="@color/safelock_on_background"
-                    app:cornerRadius="16dp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
+            android:layout_height="24dp" />
     </LinearLayout>
 </ScrollView>
