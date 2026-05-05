@@ -32,6 +32,7 @@ import com.kiddolock.app.receivers.PolicyManager
 import com.kiddolock.app.services.TimeScheduler
 import com.kiddolock.app.management.SettingsSyncManager
 import com.kiddolock.app.utils.Prefs
+import com.kiddolock.app.utils.HelpTooltips
 import com.kiddolock.app.ui.adapter.AppListAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,6 +89,7 @@ class AdminActivity : AppCompatActivity() {
 
         initViews()
         setupListeners()
+        wireHelpIcons()
         appManager.initialize() // Ensure blacklist is loaded/migrated
         loadApps()
         updateTimeValues()
@@ -402,4 +404,32 @@ class AdminActivity : AppCompatActivity() {
             android.os.Process.myUid(), packageName)
         return mode == android.app.AppOpsManager.MODE_ALLOWED
     }
+
+    /**
+     * חיבור אייקוני העזרה (?) במסך הניהול לדיאלוגי הסבר ידידותיים בעברית
+     */
+    private fun wireHelpIcons() {
+        val mapping = mapOf(
+            R.id.btnHelpInsights to HelpTooltips.HelpTopic.PARENT_INSIGHTS,
+            R.id.btnHelpCloudSync to HelpTooltips.HelpTopic.CLOUD_SYNC,
+            R.id.btnHelpAppMgmt to HelpTooltips.HelpTopic.PROTECTION_STATUS,
+            R.id.btnHelpParentPin to HelpTooltips.HelpTopic.PARENT_PIN,
+            R.id.btnHelpSupport to HelpTooltips.HelpTopic.PROTECTION_STATUS
+        )
+        HelpTooltips.attachAll(this, mapping)
+
+        // Tip card: hide if user dismissed once before
+        val prefs = getSharedPreferences("kiddolock_tips", MODE_PRIVATE)
+        val tipDismissed = prefs.getBoolean("admin_help_tip_dismissed", false)
+        val tipCard = findViewById<android.view.View?>(R.id.cardBeginnerTip)
+        val btnDismiss = findViewById<android.view.View?>(R.id.btnDismissTip)
+        if (tipCard != null) {
+            tipCard.visibility = if (tipDismissed) android.view.View.GONE else android.view.View.VISIBLE
+        }
+        btnDismiss?.setOnClickListener {
+            tipCard?.visibility = android.view.View.GONE
+            prefs.edit().putBoolean("admin_help_tip_dismissed", true).apply()
+        }
+    }
+
 }

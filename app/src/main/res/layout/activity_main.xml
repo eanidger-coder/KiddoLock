@@ -112,6 +112,19 @@
                         android:textSize="12sp" />
                 </LinearLayout>
 
+                <ImageView
+                    android:id="@+id/btnHelpKidsMode"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_help"
+                    app:tint="@color/glass_white_70"
+                    android:contentDescription="עזרה: מצב ילדים"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="2dp"
+                    android:layout_marginEnd="8dp" />
+
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/swKidsModeMain"
                     android:layout_width="wrap_content"

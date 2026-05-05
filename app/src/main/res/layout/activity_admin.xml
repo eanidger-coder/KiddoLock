@@ -49,6 +49,47 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- ════ Beginner Tip Card (dismissible) ════ -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardBeginnerTip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="@color/glass_white_10"
+                app:cardCornerRadius="14dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/cyan_accent">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="12dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💡"
+                        android:textSize="22sp"
+                        android:layout_marginEnd="10dp" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="טיפ: ליד כל מונח טכני יש אייקון ❓ ירוק. לחץ עליו לקבלת הסבר ידידותי בעברית."
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:hyphenationFrequency="none"
+                        android:breakStrategy="simple" />
+                    <ImageButton
+                        android:id="@+id/btnDismissTip"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        app:tint="@color/glass_white_50"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="סגור טיפ" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Live Protection Status Banner -->
             <com.google.android.material.card.MaterialCardView
@@ -118,17 +159,33 @@
 
 
             <!-- AI INSIGHTS -->
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="תובנות הורים"
-                android:textColor="@color/cyan_accent"
-                android:textSize="14sp"
-                android:textAllCaps="true"
-                android:textStyle="bold"
-                android:hyphenationFrequency="none"
-                android:breakStrategy="simple" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="תובנות הורים"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="14sp"
+                    android:textAllCaps="true"
+                    android:textStyle="bold" />
+                <ImageView
+                    android:id="@+id/btnHelpInsights"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_help"
+                    app:tint="@color/cyan_accent"
+                    android:contentDescription="עזרה: תובנות הורים"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="2dp" />
+            </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardAiInsights"
@@ -170,8 +227,10 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- CLOUD SYNC -->
-            <TextView
-                android:layout_width="match_parent"
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView
+                android:layout_width="0dp" android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="גיבוי וסנכרון ענן"
@@ -181,6 +240,13 @@
                 android:textStyle="bold"
                 android:hyphenationFrequency="none"
                 android:breakStrategy="simple" />
+    <ImageView android:id="@+id/btnHelpCloudSync"
+        android:layout_width="22dp" android:layout_height="22dp"
+        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
+        android:contentDescription="עזרה: סנכרון ענן"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true" android:focusable="true" android:padding="2dp" />
+</LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardCloudSync"
@@ -243,8 +309,10 @@
 
 
             <!-- APP MANAGEMENT -->
-            <TextView
-                android:layout_width="match_parent"
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView
+                android:layout_width="0dp" android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="ניהול אפליקציות חסומות"
@@ -254,6 +322,13 @@
                 android:textStyle="bold"
                 android:hyphenationFrequency="none"
                 android:breakStrategy="simple" />
+    <ImageView android:id="@+id/btnHelpAppMgmt"
+        android:layout_width="22dp" android:layout_height="22dp"
+        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
+        android:contentDescription="עזרה: ניהול אפליקציות"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true" android:focusable="true" android:padding="2dp" />
+</LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -443,8 +518,10 @@
 
 
             <!-- SECURITY & PIN -->
-            <TextView
-                android:layout_width="match_parent"
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView
+                android:layout_width="0dp" android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="@string/security_parent_pin_title"
@@ -454,6 +531,13 @@
                 android:textStyle="bold"
                 android:hyphenationFrequency="none"
                 android:breakStrategy="simple" />
+    <ImageView android:id="@+id/btnHelpParentPin"
+        android:layout_width="22dp" android:layout_height="22dp"
+        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
+        android:contentDescription="עזרה: PIN הורים"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true" android:focusable="true" android:padding="2dp" />
+</LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardChangePin"
@@ -513,8 +597,10 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- HELP & ABOUT -->
-            <TextView
-                android:layout_width="match_parent"
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView
+                android:layout_width="0dp" android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="עזרה ותמיכה"
@@ -524,6 +610,13 @@
                 android:textStyle="bold"
                 android:hyphenationFrequency="none"
                 android:breakStrategy="simple" />
+    <ImageView android:id="@+id/btnHelpSupport"
+        android:layout_width="22dp" android:layout_height="22dp"
+        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
+        android:contentDescription="עזרה: עזרה ותמיכה"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true" android:focusable="true" android:padding="2dp" />
+</LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardHelp"

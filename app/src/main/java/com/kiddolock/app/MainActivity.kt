@@ -26,6 +26,7 @@ import com.kiddolock.app.ui.AdminActivity
 import com.kiddolock.app.ui.AdminPinActivity
 import com.kiddolock.app.ui.SetupActivity
 import com.kiddolock.app.management.KidsModeManager
+import com.kiddolock.app.utils.HelpTooltips
 
 class MainActivity : AppCompatActivity() {
 
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
 
         initViews()
         setupListeners()
+        wireHelpIcons()
         
         // Sync settings from cloud on start
         com.kiddolock.app.management.SettingsSyncManager(this).syncSettingsOnStart()
@@ -202,4 +204,12 @@ class MainActivity : AppCompatActivity() {
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
         return enabledServices?.contains(expectedComponentName.flattenToString()) == true
     }
+
+    private fun wireHelpIcons() {
+        val helpKids = findViewById<android.view.View?>(R.id.btnHelpKidsMode)
+        if (helpKids != null) {
+            HelpTooltips.attach(helpKids, HelpTooltips.HelpTopic.PROTECTION_STATUS)
+        }
+    }
+
 }
