@@ -24,6 +24,22 @@ class AppManager(private val context: Context) {
      * These are blocked at Strict protection level.
      */
     private val DEFAULT_BLACKLIST = setOf(
+        // File managers (can browse media, install APKs, delete data)
+        "com.google.android.documentsui",
+        "com.android.documentsui",
+        "com.sec.android.app.myfiles",          // Samsung My Files
+        "com.mi.android.globalFileexplorer",    // Xiaomi File Manager
+        "com.huawei.filemanager",
+        "com.coloros.filemanager",              // Oppo
+        "com.android.fileexplorer",             // generic
+        "com.amaze.filemanager",
+        "com.alphainventor.filemanager",
+        "com.estrongs.android.pop",             // ES File Explorer
+        "com.cxinventor.file.explorer",
+        "com.simplemobiletools.filemanager.pro",
+        "ru.zdevs.zarchiver",
+        "com.rhmsoft.fm",
+
         // Social Media
         "com.facebook.katana",
         "com.facebook.lite",
@@ -58,14 +74,279 @@ class AppManager(private val context: Context) {
 
         // Communication (Default blocked to encourage manual allow)
         "com.google.android.gm",
+        "com.google.android.calendar",            // Google Calendar
+        "com.samsung.android.calendar",           // Samsung Calendar
+        "com.android.calendar",                   // Generic Calendar
         "com.microsoft.office.outlook",
+        "com.microsoft.office.onenote",           // OneNote
+        "com.google.android.keep",                // Google Keep (notes)
+        "com.google.android.apps.tasks",          // Google Tasks
+        "com.google.android.apps.maps",           // Google Maps (location risk)
+        "com.waze",                               // Waze
         "com.android.packageinstaller",
         "com.samsung.android.packageinstaller",
 
-        // Google Services & Entertainment
-        "com.google.android.googlequicksearchbox", // Google Search
+        // 💳 Payment / Wallet apps (CRITICAL - kids must not have access to money)
+        "com.google.android.apps.walletnfcrel", // Google Wallet (modern)
+        "com.google.android.apps.wallet",       // Google Wallet (legacy)
+        "com.google.android.gms.wallet",
+        "com.android.vending.wallet",
+        "com.samsung.android.spay",             // Samsung Pay
+        "com.samsung.android.samsungpay.gear",
+        "com.samsung.android.samsungpaygear",
+        "com.paypal.android.p2pmobile",         // PayPal
+        "com.bit.android.app",                  // Bit (Israeli payment)
+        "com.payboxapp",                        // PayBox (Israeli)
+        "com.bnhp.payments.payments",           // Hapoalim Payments
+        "com.poalim.bl",                        // Hapoalim Bank
+        "com.leumi.leumiwallet",                // Leumi Wallet
+        "com.leumi.leumiapp",                   // Leumi Bank
+        "com.discount.banking",                 // Discount Bank
+        "com.fibi.fibiapp",                     // FIBI Bank
+        "com.mizrahi.tefahot.banking",          // Mizrahi Bank
+        "com.poalim.business",                  // Poalim Business
+        "com.poaliminstitution.dbankrnd",       // Poalim institutional
+        "com.android.pay",                      // Generic pay
+        "com.amazon.windowshop",                // Amazon Shop
+        "com.aliexpress.android",               // AliExpress
+        "com.amazon.mShop.android.shopping",    // Amazon Shopping
+        "com.ebay.mobile",                      // eBay
+        "com.zara",                             // Zara
+        "com.next.android",                     // Next
+        "com.shein.shein",                      // Shein
+        "com.contextlogic.wish",                // Wish
+        "com.binance.dev",                      // Crypto
+        "com.coinbase.android",                 // Crypto
+        "com.kraken.android",                   // Crypto
+
+        // 📹 YouTube + ALL alternative clients (kids try these to bypass parental controls)
         "com.google.android.youtube",
         "com.google.android.apps.youtube.kids",
+        "com.google.android.apps.youtube.music",     // YouTube Music
+        "com.google.android.apps.youtube.creator",   // YouTube Studio
+        "com.vanced.android.youtube",                // YouTube Vanced (legacy)
+        "com.vanced.manager",                        // Vanced Manager
+        "app.revanced.android.youtube",              // ReVanced
+        "app.rvx.android.youtube",                   // ReVanced eXtended (RVX)
+        "app.rvx.android.youtube.music",             // RVX Music
+        "org.schabi.newpipe",                        // NewPipe
+        "org.schabi.newpipelegacy",                  // NewPipe Legacy
+        "io.github.polymeilex.newpipe.fork",         // NewPipe forks
+        "InfinityLoop1309.NewPipeEnhanced",          // PipePipe
+        "com.github.libretube",                      // LibreTube
+        "io.freetubeapp.freetube",                   // FreeTube
+        "free.rm.skytube.oss",                       // SkyTube
+        "free.rm.skytube.extra",                     // SkyTube Extra
+        "org.polymorphicshade.tubular",              // Tubular
+        "com.artworkivity.songtube",                 // SongTube
+        "com.kapp.youtube.final",                    // SnapTube
+        "com.kapp.youtube",                          // SnapTube older
+        "com.touchtype.swiftkey.tubeapp",
+        "com.dvtonder.chronus.youtube",
+        "co.uk.youtube.kids.client",
+        "com.google.android.googlequicksearchbox",   // Google Search
+
+        // 🎬 ALL major streaming services (block by default, parent unlocks if appropriate)
+        "com.netflix.mediaclient",                   // Netflix
+        "com.netflix.NGP.netflix",                   // Netflix Games
+        "com.disney.disneyplus",                     // Disney+
+        "com.disney.disneyplus.lite",                // Disney+ Lite
+        "com.hbo.hbonow",                            // HBO Now
+        "com.hbo.android.app",                       // HBO Go
+        "com.wbd.stream",                            // Max (HBO Max)
+        "com.wbd.stream.tv",
+        "com.amazon.avod.thirdpartyclient",          // Prime Video
+        "com.amazon.firetv.youtube",
+        "com.apple.atve.androidtv.appletv",          // Apple TV
+        "com.apple.android.music",                   // Apple Music
+        "com.hulu.plus",                             // Hulu
+        "com.peacocktv.peacockandroid",              // Peacock
+        "com.cbs.app",                               // Paramount+
+        "com.cbs.cbssportsapp",
+        "com.discovery.discoveryplus.mobile",        // Discovery+
+        "com.discovery.discoveryplus.googleplay",
+        "com.crunchyroll.crunchyroid",               // Crunchyroll
+        "com.funimation.FunimationNow",              // Funimation
+        "com.dazn",                                  // DAZN
+        "com.dazn.mobile.app.android",
+        "com.fubo.firetv",                           // FuboTV
+        "com.fubo.mobile",
+        "com.starz.android.starzplay",               // Starz
+        "com.showtime.standalone",                   // Showtime
+        "com.spotify.music",                         // Spotify (kids music? optional)
+        "com.deezer.android.app",                    // Deezer
+        "com.soundcloud.android",                    // SoundCloud
+        "com.pandora.android",                       // Pandora
+
+        // 🇮🇱 Israeli streaming
+        "com.yesplus",                               // Yes+
+        "com.yes.plus",
+        "com.hot.player",                            // HOT
+        "com.cellcom.tv",                            // Cellcom TV
+        "com.partner.tv",                            // Partner TV
+        "com.sting.app",                             // Sting+
+        "com.stingtv.android",                       // StingTV
+        "com.idnow.idnowapp",
+        "il.co.kan.android",                         // KAN (national)
+        "il.co.galatz.gali.app",                     // Galatz
+        "il.co.reshet.androidapp",                   // Reshet
+        "il.co.keshet.kan",
+        "il.co.makotv.makovod",                      // MakoVOD
+        "il.co.maariv.maariv",
+        "il.co.ynet.ynet",                           // Ynet (parent decides)
+
+        // 🎥 Media players (used for streaming pirated content)
+        "org.videolan.vlc",                          // VLC
+        "com.mxtech.videoplayer.ad",                 // MX Player free
+        "com.mxtech.videoplayer.pro",                // MX Player Pro
+        "com.kmplayer",                              // KMPlayer
+        "org.xbmc.kodi",                             // Kodi
+        "com.plexapp.android",                       // Plex
+        "com.plexapp.plex",
+        "com.stremio.one",                           // Stremio
+        "com.cinema.hd",                             // Cinema HD
+        "com.showbox.app",                           // ShowBox
+        "com.bsplayer.bspandroid.free",              // BS Player
+        "com.inshot.xplayer",                        // X Player
+        "video.player.videoplayer",
+        "tv.danmaku.bili",                           // BiliBili
+        "com.popcorntime.app",                       // Popcorn Time
+        "com.megacubo.tv",                           // MegaCubo
+
+        // 📷 Cameras (prevent kids from filling phone with 10GB of photos/videos)
+        "com.google.android.GoogleCamera",         // Google Camera
+        "com.android.camera",                       // Stock Camera (AOSP)
+        "com.android.camera2",                      // Camera 2
+        "com.sec.android.app.camera",               // Samsung Camera
+        "com.samsung.android.app.camera",
+        "com.huawei.camera",                        // Huawei Camera
+        "com.miui.camera",                          // Xiaomi MIUI Camera
+        "com.oppo.camera",                          // Oppo Camera
+        "com.coloros.camera",                       // ColorOS Camera
+        "com.vivo.camera",                          // Vivo Camera
+        "com.oneplus.camera",                       // OnePlus Camera
+        "com.realme.camera",                        // Realme Camera
+        "com.tcl.camera",                           // TCL Camera
+        "com.lge.camera",                           // LG Camera
+        "com.motorola.camera2",                     // Motorola
+        "com.motorola.camera",
+        "com.htc.camera",                           // HTC Camera
+        "com.android.gallery3d.camera",
+        "net.sourceforge.opencamera",               // Open Camera (popular alt)
+        "com.almalence.opencam",                    // Open Camera Plus
+        "com.cyberlink.youcam.perfect",             // YouCam
+        "com.cyberlink.you.camera",
+        "com.cyberlink.youperfect",
+        "com.cyberlink.actiondirector",
+        "com.snowcorp.snow.android",                // SNOW
+        "com.linecorp.b612.android",                // B612
+        "com.lyrebirdstudio.facelab",
+        "com.snapchat.android",                     // Snapchat (already blocked but camera context)
+        "com.zhiliaoapp.musically",                 // TikTok (already blocked)
+        "us.zoom.videomeetings",                    // Zoom (video chat)
+        "com.skype.raider",                         // Skype
+        "com.lithium.silnoid",
+        "com.frontrow.vlog",
+        "com.brutusin.android.camera",
+        "com.commonsware.android.camcon",
+
+        // 📱 Social media (additions to existing)
+        "com.zhiliaoapp.musically",                  // TikTok
+        "com.ss.android.ugc.trill",                  // TikTok Lite
+        "com.ss.android.ugc.aweme",                  // Douyin (TikTok China)
+        "com.snapchat.android",                      // Snapchat
+        "com.instagram.android",                     // Instagram
+        "com.instagram.barcelona",                   // Threads
+        "com.facebook.katana",                       // Facebook
+        "com.facebook.lite",                         // FB Lite
+        "com.facebook.orca",                         // Messenger
+        "com.facebook.mlite",                        // Messenger Lite
+        "com.bereal.ft",                             // BeReal
+        "xyz.blueskyweb.app",                        // Bluesky
+        "org.joinmastodon.android",                  // Mastodon
+        "com.vkontakte.android",                     // VK
+        "com.tencent.mm",                            // WeChat
+        "com.discord",                               // Discord
+        "com.reddit.frontpage",                      // Reddit
+        "com.laurencedawson.reddit_sync",            // Reddit Sync
+        "ml.docilealligator.infinityforreddit",      // Infinity for Reddit
+        "com.rubycell.pianisthd",
+        "net.fourchan.app",                          // 4chan
+        "sh.whisper",                                // Whisper
+        "co.hellomonkey",                            // Monkey
+        "com.omegle.app",                            // Omegle
+        "com.kik.android",                           // Kik
+        
+        // 💬 Messengers (kid safety - blocked by default except WhatsApp which is the IL family standard)
+        "org.telegram.messenger",                    // Telegram (was in older list, ensure)
+        "org.telegram.plus",                         // Telegram X
+        "org.thoughtcrime.securesms",                // Signal
+        "com.viber.voip",                            // Viber
+        "com.imo.android.imoim",                     // Imo
+        "com.imo.android.imoimbeta",
+        "com.skype.raider",                          // Skype (already added in cameras but ensure)
+        "com.tencent.mobileqq",                      // QQ
+        "kakao.talk",                                // KakaoTalk
+        "jp.naver.line.android",                     // LINE
+        "us.zoom.videomeetings",                     // Zoom
+        "com.zhiliaoapp.musically",                  // TikTok (already there)
+        "com.snapchat.android",                      // Snapchat (already there)
+        "com.discord",                               // Discord (already there)
+        "com.kik.android",                           // Kik (already, duplicated for safety)
+        "im.bclpbkiauz.android",                     // some chat apps
+        "com.signal.android",
+        "com.zello.android",                         // Zello walkie-talkie
+        "com.cyou.privacy.messenger",
+        "com.google.android.apps.tachyon",           // Google Duo / Meet
+        "com.google.android.apps.googlevoice",       // Google Voice
+        // NOTE: WhatsApp (com.whatsapp) intentionally NOT blocked by default - Israeli family standard
+
+        // 🎮 Game streaming + game stores
+        "com.valvesoftware.android.steam.community", // Steam
+        "com.valvesoftware.steamlink",               // Steam Link
+        "com.nvidia.geforcenow",                     // GeForce Now
+        "com.microsoft.xcloud",                      // Xbox Cloud Gaming
+        "com.epicgames.fortnite",                    // Fortnite
+        "com.epicgames.portal",                      // Epic Games
+        "com.activision.callofduty.shooter",
+        "com.king.candycrushsaga",                   // Candy Crush (parent decides)
+        "com.roblox.client",                         // Roblox
+        "com.mojang.minecraftpe",                    // Minecraft
+
+        // 🌐 Browsers (additional - some kids try these to bypass)
+        "org.torproject.torbrowser",                 // Tor
+        "us.spotco.fennec_dos",                      // Mull
+        "com.yandex.browser",                        // Yandex
+        "com.yandex.browser.lite",
+        "com.uc.browser.en",                         // UC Browser
+        "com.uc.browser.us",
+        "com.dolphin.browser.express.web",           // Dolphin
+        "com.cloudmosa.puffinFree",                  // Puffin
+        "org.adblockplus.browser",                   // ABP Browser
+        "io.kiwibrowser.browser",                    // Kiwi (Chrome variant with extensions)
+
+        // 🛠️ Sideload / mod tools (THE kids' bypass arsenal)
+        "org.fdroid.fdroid",                         // F-Droid
+        "com.aurora.store",                          // Aurora Store
+        "com.apkmirror.helper",                      // APKMirror
+        "com.apkpure.aegon",                         // APKPure
+        "moe.shizuku.privileged.api",                // Shizuku
+        "com.aefyr.sai",                             // Split APKs Installer
+        "com.mp4parser.muxer",
+        "com.androidplus.app",
+        "com.uptodown",                              // Uptodown
+        "com.mobilesecurity.android.installer",
+        "com.android.vending.expansion.downloader",  // OBB downloaders
+
+        // 🔞 Adult / inappropriate content
+        "com.ph.app",                                // Pornhub
+        "com.xhamster.app",                          // xHamster
+        "com.youporn.android",
+        "com.brazzers.android",
+        "com.pornhub.android",
+
+        // Original entry kept for historical reference
+        "com.google.android.googlequicksearchbox",   // (duplicate ok)
 
         // Media & Files
         "com.google.android.apps.photos",
@@ -128,15 +409,23 @@ class AppManager(private val context: Context) {
 
     // Apps that bypass Time Restrictions by default but CAN be manually locked by parent
     val ESSENTIAL_APPS_WHITELIST = setOf(
+        // Dialer (essential for emergency calls)
         "com.android.dialer",
         "com.google.android.dialer",
+        "com.samsung.android.dialer",          // Samsung Dialer
+        "com.android.phone",
+        // Contacts
         "com.android.contacts",
         "com.google.android.contacts",
-        "com.android.phone",
-        "com.kiddolock.app",
+        "com.samsung.android.app.contacts",
+        // SMS / Messages (built-in)
         "com.android.mms",
         "com.google.android.apps.messaging",
-        "com.whatsapp"
+        "com.samsung.android.messaging",       // Samsung Messages
+        // WhatsApp - the Israeli family standard
+        "com.whatsapp",
+        // KiddoLock itself
+        "com.kiddolock.app"
     )
 
     // Active blacklist (user-configurable)
@@ -250,6 +539,43 @@ class AppManager(private val context: Context) {
             prefs.edit().putInt("blacklist_version", 10).apply()
             Log.i(TAG, "Migration V10: Performed comprehensive Gallery & Media hardening")
         }
+
+        // Migration: V11 (Wallet, Calendar, RVX YouTube alts, Streaming, Social media, Sideload tools)
+        if (blacklistVersion < 11) {
+            val before = blacklistedApps.size
+            blacklistedApps.addAll(DEFAULT_BLACKLIST)
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 11).apply()
+            Log.i(TAG, "Migration V11: Added ${blacklistedApps.size - before} new defaults")
+        }
+
+        // Migration: V12 (Cameras - prevent kids from filling phone with photos/videos)
+        if (blacklistVersion < 12) {
+            val before = blacklistedApps.size
+            blacklistedApps.addAll(DEFAULT_BLACKLIST)
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 12).apply()
+            Log.i(TAG, "Migration V12: Camera apps added (delta=${blacklistedApps.size - before})")
+        }
+
+        // Migration: V13 (Messengers - except WhatsApp)
+        if (blacklistVersion < 13) {
+            val before = blacklistedApps.size
+            blacklistedApps.addAll(DEFAULT_BLACKLIST)
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 13).apply()
+            Log.i(TAG, "Migration V13: Messengers added (delta=${blacklistedApps.size - before})")
+        }
+
+        // Migration: V14 (File managers - prevent child from browsing media, sideloading APKs)
+        if (blacklistVersion < 14) {
+            val before = blacklistedApps.size
+            blacklistedApps.addAll(DEFAULT_BLACKLIST)
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 14).apply()
+            Log.i(TAG, "Migration V14: File managers added (delta=${blacklistedApps.size - before})")
+        }
+
         val savedBlacklist = prefs.getStringSet(KEY_BLACKLISTED_APPS, null)
         blacklistedApps.clear()
         if (savedBlacklist != null) {

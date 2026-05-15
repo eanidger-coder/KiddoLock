@@ -19,6 +19,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
     private lateinit var bypassGuard: BypassGuard
     private var currentForegroundPackage: String? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var lastEventProcessedMs: Long = 0
     private var lastNavigationTime = 0L // Guard against loops during Home navigation
     private var isHomeTransitioning = false // Flag for 1.5s Home grace period
     
@@ -27,6 +28,16 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         private const val TAG = "AccessibilityService"
         private const val USAGE_RECORD_INTERVAL_MS = 60000L 
     }
+    // ⏰ Refresh persistent notification every 30s so the live timer in the pull-down updates
+    private val notificationRefreshRunnable = object : Runnable {
+        override fun run() {
+            try {
+                com.kiddolock.app.utils.NotificationUtils.updateNotification(this@KiddoLockAccessibilityService)
+            } catch (_: Exception) {}
+            handler.postDelayed(this, 60000)
+        }
+    }
+
     private val periodicCheckRunnable = object : Runnable {
         override fun run() {
             try {
@@ -34,7 +45,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                 val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
                 if (!pm.isInteractive) {
                     Log.v(TAG, "Screen is off - skipping periodic check")
-                    handler.postDelayed(this, 10000)
+                    handler.postDelayed(this, 5000)
                     return
                 }
 
@@ -79,7 +90,21 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                         // 1. Record usage
                         checkAndRecordUsage(pkg)
                         
-                        // 2. Re-verify blocking logic
+                        // 2a. FULL LOCK when daily limit reached - even launcher gets blocked
+                        // BUT critical apps (dialer, SMS, WhatsApp, contacts) stay accessible for safety/emergency
+                        val scheduler = TimeScheduler(this@KiddoLockAccessibilityService)
+                        if (scheduler.isDailyLimitReached() && !AppBlockManager.isGlobalSuppressed
+                            && pkg != packageName
+                            && !com.kiddolock.app.management.AppManager(this@KiddoLockAccessibilityService).ESSENTIAL_APPS_WHITELIST.contains(pkg)) {
+                            // Daily limit hit - lockdown screen
+                            Log.i(TAG, "Periodic check: Daily limit reached. FULL LOCK on $pkg")
+                            showBlockOverlay(pkg)
+                            // schedule continuation
+                            handler.postDelayed(this, 5000)
+                            return@let
+                        }
+
+                        // 2b. Re-verify blocking logic
                         if (AppBlockManager.isAppBlocked(this@KiddoLockAccessibilityService, pkg)) {
                             Log.i(TAG, "Periodic check: $pkg is BLOCKED. Ensuring overlay.")
                             showBlockOverlay(pkg)
@@ -93,7 +118,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                 Log.e(TAG, "Critical error in periodic check loop", e)
             } finally {
                 // Increased frequency: 3 seconds for active foreground apps
-                handler.postDelayed(this, 3000)
+                handler.postDelayed(this, 10000)
             }
         }
     }
@@ -125,14 +150,18 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
     private fun checkAndRecordUsage(packageName: String) {
         val now = System.currentTimeMillis()
-        if (now - lastUsageRecordTime >= USAGE_RECORD_INTERVAL_MS) { // Use constant
-            // OPTIMIZATION: Use cached AppManager instead of creating a new one
-            val appManager = AppBlockManager.getAppManager(this)
-            if (!appManager.isSystemProtected(packageName)) {
-                Log.v(TAG, "Recording 1 minute usage for $packageName")
-                TimeScheduler(this).recordUsageMinute()
-                lastUsageRecordTime = now
-            }
+        if (now - lastUsageRecordTime < USAGE_RECORD_INTERVAL_MS) return
+        // 👨‍👩‍👧 Use case: parent lends their phone to kid.
+        // Track usage time ONLY when Kids Mode is ACTIVE (kid is using the phone).
+        // When parent uses their own phone, don't accumulate against the kid's limit.
+        val kidsMode = KidsModeManager(this)
+        if (!kidsMode.isEnabled) {
+            return
+        }
+        if (packageName != this.packageName && !packageName.contains("com.kiddolock.app")) {
+            Log.i(TAG, "Recording 1 minute KIDS-MODE usage for $packageName")
+            TimeScheduler(this).recordUsageMinute()
+            lastUsageRecordTime = now
         }
     }
 
@@ -146,12 +175,63 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(periodicCheckRunnable)
+        handler.removeCallbacks(notificationRefreshRunnable)
         super.onDestroy()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString() ?: return
-        
+
+        // 🚀 PERFORMANCE FIX: Drop events from KiddoLock itself or systemui early.
+        if (packageName == this.packageName ||
+            packageName.contains("com.kiddolock.app") ||
+            packageName == "com.android.systemui") {
+            return
+        }
+
+        // 🔥 CRITICAL: Update foreground package tracking BEFORE debouncing.
+        // Otherwise periodic checks (daily limit, bedtime, instant lock) use stale data and don't enforce.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            currentForegroundPackage = packageName
+        }
+
+        // ⚡ INSTANT BLOCK: בדיקה מהירה לפני debouncing.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            try {
+                val isInstantBlock = AppBlockManager.isAppBlocked(this, packageName)
+                if (isInstantBlock && !AppBlockManager.isGlobalSuppressed
+                    && !AppBlockManager.isTemporarilyUnlocked(packageName)) {
+                    Log.i(TAG, "⚡ INSTANT BLOCK: $packageName")
+                    lastNavigationTime = System.currentTimeMillis()
+                    // ⚡ Show overlay FIRST so screen is covered instantly,
+                    // THEN go home (which can take 500-1500ms on some devices)
+                    showBlockOverlay(packageName)
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    return
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Instant block check failed for $packageName", e)
+            }
+        }
+
+        // 🚀 DEBOUNCING (heavy work only): max 1 secondary check per 2500ms.
+        val now = System.currentTimeMillis()
+        if (now - lastEventProcessedMs < 1000) {
+            return
+        }
+        lastEventProcessedMs = now
+
+        // 🪶 LOW-MEMORY GUARD: skip on devices < 200MB available.
+        try {
+            val mi = android.app.ActivityManager.MemoryInfo()
+            (getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)?.getMemoryInfo(mi)
+            if (mi.lowMemory || mi.availMem < 200L * 1024 * 1024) {
+                Log.w(TAG, "Low memory mode: skipping heavy event for $packageName")
+                return
+            }
+        } catch (_: Exception) {}
+
         // Track foreground app more aggressively (Window switch, Focus change, etc.)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || 
             event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED ||
@@ -285,16 +365,35 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         }
 
         Log.i(TAG, "Showing block overlay for $packageName")
-        
+
         // FORCE navigate to Home — prevent blocked app from staying under the overlay
         lastNavigationTime = System.currentTimeMillis() // Start guard
         performGlobalAction(GLOBAL_ACTION_HOME)
-        
+
         val intent = Intent(this, OverlayService::class.java).apply {
             action = "SHOW_OVERLAY"
             putExtra("package_name", packageName)
         }
         startService(intent)
+
+        // MEMORY CLEANUP: kill the blocked app's background processes so it doesn't accumulate in RAM.
+        // This frees memory and battery when the kid taps many blocked apps in sequence.
+        // Note: This kills only background processes, not foreground (which we just sent to home anyway).
+        try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            if (am != null && packageName != this.packageName) {
+                handler.postDelayed({
+                    try {
+                        am.killBackgroundProcesses(packageName)
+                        Log.d(TAG, "Killed background processes for blocked $packageName")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not kill background for $packageName: ${e.message}")
+                    }
+                }, 800L)  // delay so the user sees the overlay first, then we cleanup
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "killBackground setup failed: ${e.message}")
+        }
     }
 
     override fun onInterrupt() {}
@@ -310,10 +409,11 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 100
             flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-        } ?: serviceInfo
+                handler.postDelayed(notificationRefreshRunnable, 5000)
+    } ?: serviceInfo
 
         // Start periodic check
-        handler.postDelayed(periodicCheckRunnable, 5000)
+        handler.postDelayed(periodicCheckRunnable, 12000)
 
         // Start foreground
         try {

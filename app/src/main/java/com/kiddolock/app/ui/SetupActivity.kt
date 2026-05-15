@@ -59,6 +59,10 @@ class SetupActivity : AppCompatActivity() {
     private lateinit var etRecoveryEmail: com.google.android.material.textfield.TextInputEditText
     private lateinit var tilRecoveryEmail: com.google.android.material.textfield.TextInputLayout
 
+    /** מצב ההכוונה לבעיית 'הגדרות מוגבלות' (Android 13+). 0=לא ננסה, 1=פעם 1, 2+=הופעל ההסבר */
+    private var accessibilityAttemptCount: Int = 0
+    private var awaitingRestrictedToggle: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setup)
@@ -96,6 +100,72 @@ class SetupActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateStatus()
+
+        // אוטו-זיהוי בעיית 'הגדרות מוגבלות': אם המשתמש כבר ניסה להפעיל נגישות ועדיין לא הצליח - הצג עזרה
+        val accOk = isAccessibilityServiceEnabled(this, KiddoLockAccessibilityService::class.java)
+        if (awaitingRestrictedToggle) {
+            // המשתמש חזר מ-App Details אחרי שאישר הגדרות מוגבלות.
+            // נפנה אותו ישירות למסך השירות של KiddoLock בנגישות (לא לרשימה הכללית).
+            awaitingRestrictedToggle = false
+            if (!accOk) {
+                Toast.makeText(this, "מצוין! עכשיו פותח את שירות הנגישות של KiddoLock - הפעל את המתג", Toast.LENGTH_LONG).show()
+                accessibilityAttemptCount++
+                try {
+                    // Android 14+ supports direct accessibility service screen
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        val component = android.content.ComponentName(
+                            packageName,
+                            "com.kiddolock.app.services.KiddoLockAccessibilityService"
+                        )
+                        val intent = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").apply {
+                            putExtra(Intent.EXTRA_COMPONENT_NAME, component.flattenToString())
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        startActivity(intent)
+                    } else {
+                        // Fallback for older Android: open accessibility settings list with hint Toast
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        Toast.makeText(this, "גלול ל'יישומים מותקנים' ובחר KiddoLock", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    // If the direct intent isn't supported, fall back to the general list
+                    try { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } catch (_: Exception) {}
+                    Toast.makeText(this, "גלול ל'יישומים מותקנים' ובחר KiddoLock", Toast.LENGTH_LONG).show()
+                }
+            }
+        } else if (!accOk && accessibilityAttemptCount >= 1 &&
+                   Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // ניסה פעם 1 וחזר בלי הצלחה - כנראה חסימת 'הגדרות מוגבלות'. הצג הסבר פשוט.
+            showRestrictedSettingsHelper()
+        }
+    }
+
+    /**
+     * דיאלוג פשוט שמסביר ב-3 צעדים איך לפתוח את חסימת 'הגדרות מוגבלות' באנדרואיד 13+.
+     * נפתח אוטומטית כאשר זוהתה הבעיה, או כשהמשתמש לוחץ שוב על כרטיס הנגישות אחרי כישלון.
+     */
+    private fun showRestrictedSettingsHelper() {
+        val msg = "אנדרואיד חוסם הפעלה ראשונה של נגישות מאפליקציה שהותקנה ידנית. נתקן את זה ב-4 צעדים פשוטים:\n\n1. חזור להגדרות הנגישות, לחץ על KiddoLock האפור פעם אחת. אנדרואיד יציג הודעת 'הגדרה מוגבלת'. אשר אותה וחזור לכאן.\n\n2. עכשיו לחץ 'פתח לי' למטה. במסך הבא לחץ על 3 הנקודות (⋮) למעלה ובחר 'אפשר הגדרות מוגבלות'.\n\n3. חזור לכאן בלחיצה על 'חזור'.\n\n4. אקח אותך אוטומטית בחזרה לנגישות, ועכשיו KiddoLock לא יהיה אפור."
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("✋ ההפעלה אפורה? נתקן ב-4 צעדים")
+            .setMessage(msg)
+            .setPositiveButton("פתח לי") { _, _ ->
+                awaitingRestrictedToggle = true
+                try {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.fromParts("package", packageName, null)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(intent)
+                    Toast.makeText(this, "לחץ על 3 הנקודות (⋮) למעלה ובחר 'אפשר הגדרות מוגבלות'", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "לא ניתן לפתוח את פרטי האפליקציה", Toast.LENGTH_SHORT).show()
+                    awaitingRestrictedToggle = false
+                }
+            }
+            .setNegativeButton("ביטול", null)
+            .setCancelable(true)
+            .show()
     }
 
     private fun setupListeners() {
@@ -127,13 +197,41 @@ class SetupActivity : AppCompatActivity() {
         }
 
         cardAccessibility.setOnClickListener {
+            // אם המשתמש כבר ניסה פעם אחת ועדיין לא הצליח - כנראה חסימת 'הגדרות מוגבלות' של Android 13+
+            // נציג מיד הסבר פשוט ב-3 צעדים במקום לשלוח אותו עוד פעם בלי הסבר
+            val alreadyEnabled = isAccessibilityServiceEnabled(this, KiddoLockAccessibilityService::class.java)
+            if (!alreadyEnabled && accessibilityAttemptCount >= 1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                showRestrictedSettingsHelper()
+                return@setOnClickListener
+            }
             showPermissionGuide(
                 getString(R.string.guide_title_accessibility),
                 getString(R.string.guide_desc_accessibility),
                 R.drawable.guide_accessibility
             ) {
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
+                accessibilityAttemptCount++
+                try {
+                    // Android 14+: try the direct accessibility service screen for KiddoLock
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        val component = ComponentName(packageName, KiddoLockAccessibilityService::class.java.name)
+                        val direct = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").apply {
+                            putExtra(Intent.EXTRA_COMPONENT_NAME, component.flattenToString())
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        startActivity(direct)
+                    } else {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    // Fallback: open the general accessibility settings
+                    try {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל אותו", Toast.LENGTH_LONG).show()
+                    } catch (_: Exception) {
+                        Toast.makeText(this, "לא ניתן לפתוח הגדרות נגישות", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
 
@@ -155,10 +253,28 @@ class SetupActivity : AppCompatActivity() {
             showPermissionGuide(
                 getString(R.string.guide_title_usage),
                 getString(R.string.guide_desc_usage),
-                R.drawable.guide_usage_access // Placeholder/Generated
+                R.drawable.guide_usage_access
             ) {
-                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל גישה", Toast.LENGTH_LONG).show()
+                // Try opening the specific app's usage access page directly. Falls back to list if unsupported.
+                var opened = false
+                try {
+                    val direct = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                        data = Uri.parse("package:$packageName")
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    startActivity(direct)
+                    opened = true
+                } catch (_: Exception) {
+                    // Fall through to fallback below
+                }
+                if (!opened) {
+                    try {
+                        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                        Toast.makeText(this, "מצא את KiddoLock ברשימה והפעל גישה", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "לא ניתן לפתוח הגדרות שימוש", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
 

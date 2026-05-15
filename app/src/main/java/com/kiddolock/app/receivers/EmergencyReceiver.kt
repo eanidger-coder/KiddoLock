@@ -16,19 +16,31 @@ class EmergencyReceiver : BroadcastReceiver() {
         Log.i("EmergencyReceiver", "Received action: $action")
 
         when (action) {
+            NotificationUtils.ACTION_EMERGENCY_UNINSTALL -> {
+                // ⚡ INSTANT FEEDBACK only - no bypass before PIN!
+                vibrateConfirmation(context)
+                Toast.makeText(context, "🔐 נדרש PIN הורה להמשך הסרה", Toast.LENGTH_LONG).show()
+                showProgressNotification(context, "🔐 הזן את PIN ההורה כדי להמשיך בהסרה")
+
+                // Open AdminPinActivity. NO suppression / bypass set here - that happens only after PIN success inside AdminPinActivity.
+                val pinIntent = Intent(context, com.kiddolock.app.ui.AdminPinActivity::class.java)
+                pinIntent.action = "com.kiddolock.app.EMERGENCY_UNINSTALL"
+                pinIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_HISTORY
+                pinIntent.putExtra("emergency_uninstall", true)
+                context.startActivity(pinIntent)
+            }
             NotificationUtils.ACTION_EMERGENCY_UNLOCK -> {
-                // To make it very clear and working:
-                // 1. Temporarily suppress all blocks
-                Prefs(context).emergency_bypass_until = System.currentTimeMillis() + (10 * 60 * 1000L)
-                AppBlockManager.setGlobalSuppression(context, true)
-                
-                // 2. Open MainActivity directly
-                val mainIntent = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-                context.startActivity(mainIntent)
-                
-                Toast.makeText(context, "Emergency Unlock Initiated. Please open Admin and use PIN 8888 if locked.", Toast.LENGTH_LONG).show()
+                // ⚡ INSTANT FEEDBACK only - no bypass before PIN!
+                vibrateConfirmation(context)
+                Toast.makeText(context, "🔐 נדרש PIN הורה לשחרור זמני", Toast.LENGTH_LONG).show()
+                showProgressNotification(context, "🔐 הזן PIN לשחרור זמני של 10 דקות")
+
+                // Open AdminPinActivity. NO suppression / bypass set here - that happens only after PIN success inside AdminPinActivity.
+                val pinIntent = Intent(context, com.kiddolock.app.ui.AdminPinActivity::class.java)
+                pinIntent.action = "com.kiddolock.app.EMERGENCY_UNLOCK"
+                pinIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_HISTORY
+                pinIntent.putExtra("emergency_unlock", true)
+                context.startActivity(pinIntent)
             }
             "com.kiddolock.app.TEST_TRIGGER_BEDTIME" -> {
                 Log.w("EmergencyReceiver", "TEST: Triggering Bedtime via broadcast")
@@ -57,4 +69,35 @@ class EmergencyReceiver : BroadcastReceiver() {
             }
         }
     }
+
+    /** Quick haptic confirmation that the tap was registered */
+    private fun vibrateConfirmation(context: Context) {
+        try {
+            val vib = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+                vm.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                vib.vibrate(android.os.VibrationEffect.createOneShot(150, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vib.vibrate(150)
+            }
+        } catch (e: Exception) {
+            Log.w("EmergencyReceiver", "Vibration failed: ${e.message}")
+        }
+    }
+
+    /** Update the foreground notification with a clear progress/confirmation text */
+    private fun showProgressNotification(context: Context, text: String) {
+        try {
+            NotificationUtils.updateNotificationCustom(context, "🚨 KiddoLock - חירום פעיל", text)
+        } catch (e: Exception) {
+            Log.w("EmergencyReceiver", "Could not update notification: ${e.message}")
+        }
+    }
+
 }

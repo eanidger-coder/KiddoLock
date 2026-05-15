@@ -28,7 +28,7 @@
     <string name="hello">שלום </string>
     <string name="settings_description">הגדרות</string>
     <string name="protection_active">הגנה פעילה</string>
-    <string name="remaining_hours">שעות שנותרו</string>
+    <string name="remaining_hours">זמן שנותר היום</string>
     <string name="apps_blocked">אפליקציות חסומות</string>
     <string name="daily_quota">מכסה יומית</string>
     <string name="usage_today">שימוש היום</string>
@@ -70,7 +70,7 @@
     <string name="set_admin_pin">הגדר PIN הורים</string>
     <string name="choose_new_pin">בחר PIN חדש (לפחות 4 ספרות)</string>
     <string name="next">הבא</string>
-    <string name="first_setup_toast">הגדרה ראשונית — אנא בחר PIN</string>
+    <string name="first_setup_toast">הגדרה ראשונית - אנא בחר PIN</string>
     <string name="contact_admin_toast">צור קשר עם מנהל המערכת כדי לאפס את ה-PIN</string>
     <string name="pin_min_digits">ה-PIN חייב להיות לפחות 4 ספרות</string>
     <string name="confirm_pin">הזן שוב את ה-PIN לאימות</string>
@@ -83,8 +83,8 @@
     <string name="app_blocking_active">חסימת אפליקציות פעילה</string>
     <string name="app_blocking_inactive">חסימת אפליקציות לא פעילה</string>
     <string name="apps_blocked_count">%1$d אפליקציות חסומות</string>
-    <string name="search_apps_hint">חפש אפליקציות...</string>
-    <string name="required_by_system">נדרש על ידי המערכת — לא ניתן לחסום</string>
+    <string name="search_apps_hint">חפש אפליקציה</string>
+    <string name="required_by_system">נדרש על ידי המערכת - לא ניתן לחסום</string>
     <string name="locked_status">נעול</string>
     <string name="open_usage">פתוח • %1$d דקות היום</string>
     <string name="open_status">פתוח</string>
@@ -101,12 +101,12 @@
     <string name="protection_disabled_toast">ההגנה הושבתה ל-5 דקות ⚠️</string>
     <string name="notif_action_unlock">פתח זמנית</string>
     <string name="reason_remote_lock">המכשיר ננעל מרחוק על ידי הורה</string>
-    <string name="reason_quiet_hours">שעות שקט — %1$d:00 עד %2$d:00</string>
+    <string name="reason_quiet_hours">שעות שקט - %1$d:00 עד %2$d:00</string>
     <string name="reason_daily_limit">⏰ הוגעה למגבלה היומית (%1$d דקות)</string>
     <string name="app_blocked_reason">האפליקציה חסומה: %1$s</string>
     <string name="app_time_limit_reached">האפליקציה הגיעה למגבלה היומית (%1$d דקות)</string>
     <string name="emergency_mode_toast">מצב חירום: ההגנה מושבתת</string>
-    <string name="weekly_report_summary_header">סיכום שבועי — KiddoLock</string>
+    <string name="weekly_report_summary_header">סיכום שבועי - KiddoLock</string>
     <string name="weekly_report_screen_time"> זמן מסך היום: %1$d שעות ו-%2$d דקות</string>
     <string name="weekly_report_top_app"> אפליקציה פופולרית ביותר: %1$s</string>
     <string name="weekly_report_no_usage"> לא נרשם שימוש משמעותי היום.</string>

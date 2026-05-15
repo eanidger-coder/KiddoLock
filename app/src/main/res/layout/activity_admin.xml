@@ -91,6 +91,74 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- ════ QUICK ACTIONS (Change PIN / Help / How to Uninstall) ════ -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="20dp"
+                android:weightSum="3">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickChangePin"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="52dp"
+                    android:minHeight="52dp"
+                    android:text="🔐 PIN"
+                    android:textSize="13sp"
+                    android:gravity="center"
+                    android:padding="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:layout_marginEnd="6dp"
+                    app:strokeColor="#FFD600"
+                    android:textColor="#FFD600"
+                    android:textAllCaps="false"
+                    app:cornerRadius="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickHelp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="52dp"
+                    android:minHeight="52dp"
+                    android:text="❓ עזרה"
+                    android:textSize="13sp"
+                    android:gravity="center"
+                    android:padding="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:layout_marginHorizontal="6dp"
+                    app:strokeColor="#9B6EFF"
+                    android:textColor="#9B6EFF"
+                    android:textAllCaps="false"
+                    app:cornerRadius="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnQuickUninstall"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="52dp"
+                    android:minHeight="52dp"
+                    android:text="🗑️ הסרה"
+                    android:textSize="13sp"
+                    android:gravity="center"
+                    android:padding="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:layout_marginStart="6dp"
+                    app:strokeColor="#FF6B6B"
+                    android:textColor="#FF6B6B"
+                    android:textAllCaps="false"
+                    app:cornerRadius="12dp" />
+            </LinearLayout>
+
+
             <!-- Live Protection Status Banner -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardProtectionStatus"
@@ -228,13 +296,14 @@
 
             <!-- CLOUD SYNC -->
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:orientation="horizontal" android:gravity="center_vertical">
+    android:orientation="horizontal" android:gravity="center_vertical"
+                android:visibility="gone">
     <TextView
                 android:layout_width="0dp" android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="גיבוי וסנכרון ענן"
-                android:textColor="@color/accent_blue"
+                android:textColor="@color/cyan_accent"
                 android:textSize="14sp"
                 android:textAllCaps="true"
                 android:textStyle="bold"
@@ -250,13 +319,14 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardCloudSync"
+                android:visibility="gone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
                 app:cardBackgroundColor="@color/glass_white_10"
                 app:cardCornerRadius="16dp"
                 app:strokeWidth="1dp"
-                app:strokeColor="@color/accent_blue"
+                app:strokeColor="@color/cyan_accent"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
@@ -272,13 +342,13 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical">
-                        
+
                         <ImageView
                             android:id="@+id/ivSyncStatus"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/ic_sync"
-                            app:tint="@color/accent_blue" />
+                            app:tint="@color/cyan_accent" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -309,6 +379,227 @@
 
 
             <!-- APP MANAGEMENT -->
+            <!-- SECURITY & PIN -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/security_parent_pin_title"
+                android:textColor="@color/cyan_accent"
+                android:textSize="14sp"
+                android:textAllCaps="true"
+                android:textStyle="bold"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
+    <ImageView android:id="@+id/btnHelpParentPin"
+        android:layout_width="22dp" android:layout_height="22dp"
+        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
+        android:contentDescription="עזרה: PIN הורים"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true" android:focusable="true" android:padding="2dp" />
+</LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardChangePin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/glass_white_10"
+                app:cardCornerRadius="16dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/glass_white_20"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_lock_closed"
+                        app:tint="@color/cyan_accent" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/change_pin_label"
+                            android:textColor="@color/white"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/change_pin_desc"
+                            android:textColor="@color/glass_white_50"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_back"
+                        android:rotation="180"
+                        app:tint="@color/glass_white_50" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- HELP & ABOUT -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical">
+    <TextView
+                android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="עזרה ותמיכה"
+                android:textColor="@color/cyan_accent"
+                android:textSize="14sp"
+                android:textAllCaps="true"
+                android:textStyle="bold"
+                android:hyphenationFrequency="none"
+                android:breakStrategy="simple" />
+    <ImageView android:id="@+id/btnHelpSupport"
+        android:layout_width="22dp" android:layout_height="22dp"
+        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
+        android:contentDescription="עזרה: עזרה ותמיכה"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true" android:focusable="true" android:padding="2dp" />
+</LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardHelp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/glass_white_10"
+                app:cardCornerRadius="16dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/glass_white_20"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_help"
+                        app:tint="@color/cyan_accent" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
+                        android:text="עזרה ואודות האפליקציה"
+                        android:textColor="@color/white"
+                        android:textStyle="bold"/>
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_back"
+                        android:rotation="180"
+                        app:tint="@color/glass_white_50" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEmergencyUninstall"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="@string/btn_emergency_uninstall_parent"
+                android:textColor="#FF5252"
+                app:strokeColor="#FF5252"
+                app:rippleColor="#20FF5252"
+                android:textAllCaps="false"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp" />
+
+            <!-- ════ HOW TO UNINSTALL CARD - clear instructions for parents ════ -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="@color/glass_white_10"
+                app:cardCornerRadius="14dp"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/warning_amber">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="❓ איך מסירים את KiddoLock? (4 שלבים)"
+                        android:textColor="@color/warning_amber"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="10dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="1. כבה את &apos;מצב ילדים&apos; במסך הראשי של KiddoLock."
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="6dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="2. השבת מנהל מכשיר: הגדרות → אבטחה ופרטיות → אפליקציות מנהל מכשיר → בטל את KiddoLock. (חובה - בלי זה אנדרואיד לא יאפשר הסרה)"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="6dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="3. הגדרות → אפליקציות → KiddoLock → הסר."
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="6dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="4. אם נעלת בטעות: בהתראה למעלה לחץ &apos;❌ הסר&apos;, הזן PIN, ואז &apos;הסר עכשיו&apos; - יבצע אוטומטית את 3 השלבים."
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        android:layout_marginBottom="10dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="🆘 שכחת PIN? פתח את דף השליטה מרחוק שקיבלת בדפדפן, או השתמש בקוד שחזור באימייל שהגדרת."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:textStyle="italic" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
     android:orientation="horizontal" android:gravity="center_vertical">
     <TextView
@@ -316,7 +607,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="ניהול אפליקציות חסומות"
-                android:textColor="@color/accent_blue"
+                android:textColor="@color/cyan_accent"
                 android:textSize="14sp"
                 android:textAllCaps="true"
                 android:textStyle="bold"
@@ -403,7 +694,7 @@
                                         android:textSize="12sp"
                                         app:strokeColor="@color/glass_white_20"
                                         app:icon="@drawable/ic_time"
-                                        app:iconTint="@color/accent_blue"
+                                        app:iconTint="@color/cyan_accent"
                                         app:cornerRadius="8dp"/>
 
                                     <TextView
@@ -411,7 +702,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:layout_marginTop="4dp"
-                                        android:text="שינה: לא הוגדר"
+                                        android:text="לחץ להגדרת שעות שינה (משעה - עד שעה)"
                                         android:textColor="@color/glass_white_50"
                                         android:textSize="11sp"
                                         android:gravity="center"
@@ -437,7 +728,7 @@
                                         android:textSize="12sp"
                                         app:strokeColor="@color/glass_white_20"
                                         app:icon="@drawable/ic_timer"
-                                        app:iconTint="@color/accent_blue"
+                                        app:iconTint="@color/cyan_accent"
                                         app:cornerRadius="8dp"/>
 
                                     <TextView
@@ -445,7 +736,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:layout_marginTop="4dp"
-                                        android:text="מגבלה: ללא"
+                                        android:text="לחץ להגדרת מגבלה יומית (דקות)"
                                         android:textColor="@color/glass_white_50"
                                         android:textSize="11sp"
                                         android:gravity="center"
@@ -486,22 +777,71 @@
                             android:background="@drawable/bg_search_field"
                             android:drawableStart="@drawable/ic_search"
                             android:drawablePadding="12dp"
-                            android:hint="חפש אפליקציה..."
+                            android:hint="חפש אפליקציה"
                             android:paddingHorizontal="16dp"
                             android:textColor="@color/white"
                             android:textColorHint="@color/glass_white_50"
                             android:textSize="14sp" />
 
+                        <!-- Filter chips: All / Blocked / Open -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="10dp"
+                            android:gravity="center">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnFilterAll"
+                                style="@style/Widget.MaterialComponents.Button"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="הכל"
+                                android:textSize="13sp"
+                                android:layout_marginEnd="4dp"
+                                app:backgroundTint="@color/cyan_accent"
+                                android:textColor="@color/bg_dark" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnFilterBlocked"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="🔒 חסומות"
+                                android:textSize="13sp"
+                                android:layout_marginHorizontal="4dp"
+                                app:strokeColor="@color/danger_red"
+                                android:textColor="@color/danger_red" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnFilterOpen"
+                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_height="wrap_content"
+                                android:text="✅ פתוחות"
+                                android:textSize="13sp"
+                                android:layout_marginStart="4dp"
+                                app:strokeColor="@color/success_green"
+                                android:textColor="@color/success_green" />
+                        </LinearLayout>
+
                         <FrameLayout
                             android:layout_width="match_parent"
-                            android:layout_height="300dp"
+                            android:layout_height="wrap_content"
+                            android:minHeight="500dp"
                             android:layout_marginTop="8dp">
 
                             <androidx.recyclerview.widget.RecyclerView
                                 android:id="@+id/rvApps"
                                 android:layout_width="match_parent"
-                                android:layout_height="match_parent"
+                                android:layout_height="wrap_content"
+                                android:minHeight="500dp"
+                                android:nestedScrollingEnabled="false"
                                 android:clipToPadding="false"
+                                android:overScrollMode="never"
                                 android:paddingBottom="8dp" />
 
                             <ProgressBar
@@ -517,165 +857,6 @@
 
 
 
-            <!-- SECURITY & PIN -->
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:orientation="horizontal" android:gravity="center_vertical">
-    <TextView
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="@string/security_parent_pin_title"
-                android:textColor="@color/accent_blue"
-                android:textSize="14sp"
-                android:textAllCaps="true"
-                android:textStyle="bold"
-                android:hyphenationFrequency="none"
-                android:breakStrategy="simple" />
-    <ImageView android:id="@+id/btnHelpParentPin"
-        android:layout_width="22dp" android:layout_height="22dp"
-        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
-        android:contentDescription="עזרה: PIN הורים"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:clickable="true" android:focusable="true" android:padding="2dp" />
-</LinearLayout>
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardChangePin"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="@color/glass_white_10"
-                app:cardCornerRadius="16dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="@color/glass_white_20"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_lock_closed"
-                        app:tint="@color/accent_blue" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="16dp"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="@string/change_pin_label"
-                            android:textColor="@color/white"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="@string/change_pin_desc"
-                            android:textColor="@color/glass_white_50"
-                            android:textSize="12sp" />
-                    </LinearLayout>
-
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_back"
-                        android:rotation="180"
-                        app:tint="@color/glass_white_50" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- HELP & ABOUT -->
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:orientation="horizontal" android:gravity="center_vertical">
-    <TextView
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:text="עזרה ותמיכה"
-                android:textColor="@color/accent_blue"
-                android:textSize="14sp"
-                android:textAllCaps="true"
-                android:textStyle="bold"
-                android:hyphenationFrequency="none"
-                android:breakStrategy="simple" />
-    <ImageView android:id="@+id/btnHelpSupport"
-        android:layout_width="22dp" android:layout_height="22dp"
-        android:src="@drawable/ic_help" app:tint="@color/cyan_accent"
-        android:contentDescription="עזרה: עזרה ותמיכה"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:clickable="true" android:focusable="true" android:padding="2dp" />
-</LinearLayout>
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardHelp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="@color/glass_white_10"
-                app:cardCornerRadius="16dp"
-                app:strokeWidth="1dp"
-                app:strokeColor="@color/glass_white_20"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_help"
-                        app:tint="@color/accent_blue" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="16dp"
-                        android:text="עזרה ואודות האפליקציה"
-                        android:textColor="@color/white"
-                        android:textStyle="bold"/>
-
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_back"
-                        android:rotation="180"
-                        app:tint="@color/glass_white_50" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnEmergencyUninstall"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:text="@string/btn_emergency_uninstall_parent"
-                android:textColor="#FF5252"
-                app:strokeColor="#FF5252"
-                app:rippleColor="#20FF5252"
-                android:textAllCaps="false"
-                android:paddingTop="12dp"
-                android:paddingBottom="12dp" />
-
             <TextView
                 android:id="@+id/tvVersion"
                 android:layout_width="match_parent"
@@ -689,5 +870,17 @@
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabScrollToTop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="20dp"
+        android:src="@android:drawable/arrow_up_float"
+        app:backgroundTint="@color/cyan_accent"
+        android:contentDescription="חזור למעלה"
+        android:visibility="gone"
+        app:tint="@color/bg_dark" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

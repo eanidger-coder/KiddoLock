@@ -80,12 +80,11 @@ object AdminPinManager {
         return false
     }
 
-    fun isEmergencyPin(pin: String): Boolean {
-        // Hardcoded failsafe PIN for emergency situations
-        // In a real app, this should be more secure, but for "KiddoLock" 
-        // it serves as a reliable emergency back-door for parents.
-        return pin == "8888"
-    }
+    /**
+     * אין יותר PIN חירום קבוע. שיטות שחזור: PIN של ההורה, דשבורד מרחוק, קוד שחזור במייל.
+     * הפונקציה נשארת כדי לא לשבור קוד קיים, אבל תמיד מחזירה false.
+     */
+    fun isEmergencyPin(pin: String): Boolean = false
 
     /**
      * Extends the current authenticated session.
@@ -130,6 +129,9 @@ object AdminPinManager {
      * Returns a [PinResult] describing the outcome.
      */
     fun verifyPin(context: Context, input: String): PinResult {
+        // אין יותר Master PIN! רק ה-PIN שההורה הגדיר.
+        // אם ההורה שכח: שחזור דרך הדשבורד ב-Cloudflare או דרך קוד שחזור במייל.
+
         val p = prefs(context)
 
         // Check lockout

@@ -276,7 +276,28 @@ class AdminPinActivity : AppCompatActivity() {
                             Toast.makeText(this, R.string.overlay_neutralize_success, Toast.LENGTH_LONG).show()
                         }
                         "com.kiddolock.app.EMERGENCY_UNINSTALL" -> {
-                            AppBlockManager.uninstallSelf(this)
+                            // Show clear confirmation dialog before triggering uninstall
+                            showRemovalSuccessDialog()
+                            return@runOnUiThread
+                        }
+                        "com.kiddolock.app.EMERGENCY_UNLOCK" -> {
+                            // PIN verified - NOW (and only now) suppress blocks for 10 minutes
+                            try {
+                                com.kiddolock.app.utils.Prefs(this).emergency_bypass_until = System.currentTimeMillis() + (10 * 60 * 1000L)
+                                AppBlockManager.setGlobalSuppression(this, true)
+                                com.kiddolock.app.utils.NotificationUtils.updateNotificationCustom(
+                                    this,
+                                    "🔓 שחרור זמני פעיל",
+                                    "החסימות בוטלו ל-10 דקות. יחזרו אוטומטית."
+                                )
+                            } catch (e: Exception) {
+                                Log.e("AdminPinActivity", "Failed to apply unlock", e)
+                            }
+                            Toast.makeText(this, "✅ שחרור זמני ל-10 דקות פעיל", Toast.LENGTH_LONG).show()
+                            val mainIntent = Intent(this, com.kiddolock.app.MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            }
+                            startActivity(mainIntent)
                         }
                         "com.kiddolock.app.ADMIN_AUTH" -> {
                             AdminActivity.isSessionAuthorized = true
@@ -290,7 +311,7 @@ class AdminPinActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    
+
                     setResult(RESULT_OK)
                     finish()
                 }
@@ -318,4 +339,42 @@ class AdminPinActivity : AppCompatActivity() {
             findViewById<View>(R.id.pinIndicatorContainer).startAnimation(shake)
         }
     }
+
+    /**
+     * Show a clear, friendly dialog after the parent successfully entered PIN
+     * to remove protection. Tells the user: "You can uninstall now" + opens uninstall flow.
+     */
+    private fun showRemovalSuccessDialog() {
+        // Aggressively suppress everything for 1 hour to give user plenty of time
+        try {
+            com.kiddolock.app.management.AppBlockManager.setGlobalSuppression(this, true, true)
+            val prefs = com.kiddolock.app.utils.Prefs(this)
+            prefs.disable_all_filters = true
+            prefs.bypass_guard_enabled = false
+            prefs.certified_uninstall_in_progress = true
+        } catch (e: Exception) {
+            Log.e("AdminPinActivity", "Failed to suspend protection", e)
+        }
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("✅ המצב השתנה - ההגנה הוסרה")
+            .setMessage("כל החסימות בוטלו. עכשיו אתה יכול להסיר את KiddoLock מהמכשיר.\n\nלחץ על 'הסר עכשיו' ותועבר אוטומטית למסך ההסרה של אנדרואיד.")
+            .setPositiveButton("הסר עכשיו") { _, _ ->
+                try {
+                    AppBlockManager.uninstallSelf(this)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "פתח הגדרות → אפליקציות → KiddoLock → הסר", Toast.LENGTH_LONG).show()
+                }
+                setResult(RESULT_OK)
+                finish()
+            }
+            .setNegativeButton("מאוחר יותר") { _, _ ->
+                Toast.makeText(this, "ההגנה כבויה לשעה. תוכל להסיר ידנית מהגדרות", Toast.LENGTH_LONG).show()
+                setResult(RESULT_OK)
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
 }

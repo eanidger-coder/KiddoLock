@@ -58,3 +58,7 @@ test_output.txt
 # Agent Workspace
 .agents/
 AGENT_HANDOFF.md
+
+keystore.properties
+*.jks
+

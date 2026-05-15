@@ -110,6 +110,34 @@ class OverlayService : Service() {
         val themedContext = ContextThemeWrapper(this, R.style.Theme_KiddoLock)
         val inflater = themedContext.getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
         overlayView = inflater.inflate(R.layout.overlay_block, null)
+
+        // 🧒 Kid-friendly text based on block reason
+        try {
+            val timeScheduler = com.kiddolock.app.services.TimeScheduler(this)
+            val titleTv = overlayView?.findViewById<android.widget.TextView>(R.id.tvBlockedTitle)
+            val msgTv = overlayView?.findViewById<android.widget.TextView>(R.id.tvBlockedMessage)
+            val iconIv = overlayView?.findViewById<android.widget.ImageView>(R.id.ivLockIcon)
+            when {
+                timeScheduler.isBedtimeActive() -> {
+                    titleTv?.text = "🌙 הגיע הזמן לישון"
+                    msgTv?.text = "החסימה תוסר בבוקר. לילה טוב!"
+                    titleTv?.setTextColor(0xFF9B6EFF.toInt())
+                }
+                timeScheduler.isDailyLimitReached() -> {
+                    titleTv?.text = "⏰ זמן המסך נגמר להיום"
+                    msgTv?.text = "נתראה מחר עם זמן חדש. תפנה לפעילות אחרת בינתיים."
+                    titleTv?.setTextColor(0xFFFFA502.toInt())
+                }
+                timeScheduler.isInstantLocked() -> {
+                    titleTv?.text = "🔒 ההגנה הופעלה"
+                    msgTv?.text = "ההורה הפעיל נעילה זמנית"
+                }
+                else -> {
+                    titleTv?.text = "🛡️ אפליקציה חסומה"
+                    msgTv?.text = "ההורים בחרו אילו אפליקציות מותרות. ניתן לבקש מהם גישה."
+                }
+            }
+        } catch (_: Exception) {}
         
         pinIndicatorContainer = overlayView?.findViewById(R.id.pinIndicatorContainer)
         pinKeypad = overlayView?.findViewById(R.id.pinKeypad)
@@ -365,6 +393,18 @@ class OverlayService : Service() {
                 currentPackage?.let { pkg ->
                     val durationMs = selectedDurationMinutes * 60000L
                     AppBlockManager.temporaryUnlock(this, pkg, durationMs)
+
+                    // 🔓 תיקון באג: אם המשתמש פתח את ההגדרות (חבילת Settings), צריך לבטל גם את BypassGuard
+                    // אחרת BypassGuard.checkNavigation עדיין חוסם את ההגדרות למרות שה-PIN נכון.
+                    val isSettings = pkg.contains("settings", ignoreCase = true) ||
+                        pkg.contains("securitycenter", ignoreCase = true) ||
+                        pkg.contains("setupwizard", ignoreCase = true)
+                    if (isSettings) {
+                        com.kiddolock.app.utils.Prefs(this).emergency_bypass_until =
+                            System.currentTimeMillis() + durationMs
+                        Log.i("OverlayService", "Settings unlocked: BypassGuard suspended for ${selectedDurationMinutes}min")
+                    }
+
                     Toast.makeText(this, "גישה אושרה ל-$selectedDurationMinutes דקות", Toast.LENGTH_SHORT).show()
                     hide()
                     

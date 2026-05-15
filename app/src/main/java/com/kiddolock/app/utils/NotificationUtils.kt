@@ -40,7 +40,7 @@ object NotificationUtils {
             val setupChannel = NotificationChannel(
                 SETUP_CHANNEL_ID,
                 SETUP_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Setup and configuration alerts"
             }
@@ -79,18 +79,52 @@ object NotificationUtils {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // ⏰ Dynamic content: show remaining time or bedtime info
+        var dynamicTitle = title
+        var dynamicContent = content
+        try {
+            val scheduler = com.kiddolock.app.services.TimeScheduler(context)
+            val config = scheduler.getConfig()
+            if (active && config.dailyTimeLimitEnabled) {
+                val usageMin = scheduler.getTodayUsageMinutes()
+                val remainMin = maxOf(0, config.dailyTimeLimitMinutes - usageMin)
+                val timeStr = when {
+                    remainMin == 0 -> "נגמר הזמן היום"
+                    remainMin < 60 -> "$remainMin דק׳"
+                    else -> "${remainMin / 60}שע׳ ${remainMin % 60}דק׳"
+                }
+                dynamicContent = "⏰ זמן מסך שנותר: $timeStr"
+            }
+            if (active && config.quietHoursEnabled) {
+                val sh = config.quietHoursStart
+                val sm = config.quietHoursStartMin
+                val eh = config.quietHoursEnd
+                val em = config.quietHoursEndMin
+                if (scheduler.isBedtimeActive()) {
+                    dynamicTitle = "🌙 שעת שינה פעילה"
+                    dynamicContent = "האפליקציות חסומות עד %02d:%02d".format(eh, em)
+                } else {
+                    dynamicContent += " • 🌙 שינה ב-%02d:%02d".format(sh, sm)
+                }
+            }
+        } catch (_: Exception) {}
+
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(content)
+            .setContentTitle(dynamicTitle)
+            .setContentText(dynamicContent)
             .setSmallIcon(R.drawable.ic_shield)
             .setColor(0xFF4CAF50.toInt()) // Green color for active protection
-            .setPriority(NotificationCompat.PRIORITY_MAX) 
+            .setPriority(NotificationCompat.PRIORITY_LOW) 
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setAutoCancel(false)
+            .addAction(R.drawable.ic_lock_open, "🔓 שחרור (PIN)", unlockPendingIntent)
+            .addAction(R.drawable.ic_status_pending, "❌ הסר (PIN)", uninstallPendingIntent)
             .build()
     }
 
@@ -131,6 +165,34 @@ object NotificationUtils {
     fun updateNotification(context: Context, active: Boolean = isProtectionActive) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(KIDDO_NOTIFICATION_ID, buildNotification(context, active))
+    }
+
+    /**
+     * עדכון מהיר של ההתראה הראשית עם טקסט מותאם.
+     * משמש למשוב חזותי כשמשתמש לוחץ על כפתור חירום בהתראה.
+     */
+    fun updateNotificationCustom(context: Context, title: String, content: String) {
+        createNotificationChannel(context)
+        val intent = android.content.Intent(context, com.kiddolock.app.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            context, 0, intent,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val n = androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setSmallIcon(com.kiddolock.app.R.drawable.ic_shield)
+            .setColor(0xFFFFA502.toInt())
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_SERVICE)
+            .build()
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(KIDDO_NOTIFICATION_ID, n)
     }
 
     fun isServiceRunning(context: Context, serviceClass: Class<*>): Boolean {

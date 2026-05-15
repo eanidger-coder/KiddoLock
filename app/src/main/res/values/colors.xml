@@ -37,7 +37,8 @@
 
     <!-- System & UI Defaults -->
     <color name="white">#FFFFFF</color>
-    <color name="accent_blue">#2B7AEE</color>
+    <!-- Legacy alias: forward old "accent_blue" references to the cyan brand color -->
+    <color name="accent_blue">#00E5FF</color>
     <color name="glass_white_05">#0DFFFFFF</color>
     <color name="glass_white_10">#1AFFFFFF</color>
     <color name="glass_white_50">#80FFFFFF</color>

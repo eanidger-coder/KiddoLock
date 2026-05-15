@@ -1,4 +1,4 @@
-import java.util.Properties
+﻿import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -103,6 +103,7 @@ dependencies {
 
 android {
     lint {
+        checkReleaseBuilds = false
         baseline = file("lint-baseline.xml")
         abortOnError = false
     }

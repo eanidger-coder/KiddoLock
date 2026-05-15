@@ -26,6 +26,14 @@ class BootReceiver : BroadcastReceiver() {
 
         Log.i(TAG, "Boot completed — checking if KiddoLock should auto-start")
 
+        // 🚨 קריטי: רושם את ה-Heartbeat גם אחרי boot, גם אם ההגנה כבויה.
+        // כך מתג הכיבוי המרחוק תמיד עובד.
+        try {
+            com.kiddolock.app.management.HeartbeatWorker.schedule(context)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule heartbeat after boot", e)
+        }
+
         val prefs = context.getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
         
         // Don't start if user explicitly disabled everything

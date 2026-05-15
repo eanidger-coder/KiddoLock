@@ -33,6 +33,7 @@ import com.kiddolock.app.services.TimeScheduler
 import com.kiddolock.app.management.SettingsSyncManager
 import com.kiddolock.app.utils.Prefs
 import com.kiddolock.app.utils.HelpTooltips
+import com.kiddolock.app.management.AdminPinManager
 import com.kiddolock.app.ui.adapter.AppListAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,6 +77,9 @@ class AdminActivity : AppCompatActivity() {
     private lateinit var adminComponent: ComponentName
 
     private var allApps: List<AppManager.AppInfo> = emptyList()
+    private var currentFilter: AppFilter = AppFilter.ALL
+
+    enum class AppFilter { ALL, BLOCKED, OPEN }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,18 +102,19 @@ class AdminActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        
-        // Check if the session is currently authorized via AdminPinManager
-        // This is cleared automatically in KiddoLockApp if the app goes to background
-        if (!com.kiddolock.app.management.AdminPinManager.isAuthenticated()) {
-            isSessionAuthorized = false
+        // ✨ UX FIX: לא לבקש PIN שוב כשמגיעים ממסך ראשי באותה הפעלה.
+        // אם isAuthenticated() = true (PIN אומת לאחרונה) - לא מבקשים שוב.
+        // האימות נדרש רק כשהאפליקציה חוזרת מ-background ו-session נמחק.
+        isSessionAuthorized = com.kiddolock.app.management.AdminPinManager.isAuthenticated()
+                            || AdminActivity.isSessionAuthorized
+        if (!isSessionAuthorized) {
             val intent = Intent(this, AdminPinActivity::class.java).apply {
                 action = "com.kiddolock.app.ADMIN_AUTH"
             }
             startActivity(intent)
         } else {
-            isSessionAuthorized = true
-            Log.d("AdminActivity", "Session active")
+            // Make sure both flags are aligned
+            AdminActivity.isSessionAuthorized = true
         }
     }
 
@@ -210,6 +215,41 @@ class AdminActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {}
         })
 
+        // Filter chips wiring
+        findViewById<View>(R.id.btnFilterAll)?.setOnClickListener { setFilter(AppFilter.ALL) }
+        findViewById<View>(R.id.btnFilterBlocked)?.setOnClickListener { setFilter(AppFilter.BLOCKED) }
+        findViewById<View>(R.id.btnFilterOpen)?.setOnClickListener { setFilter(AppFilter.OPEN) }
+
+        // Quick Actions at top of admin
+        findViewById<View>(R.id.btnQuickChangePin)?.setOnClickListener {
+            val intent = Intent(this, AdminPinActivity::class.java).apply {
+                putExtra("CHANGE_PIN_MODE", true)
+            }
+            startActivity(intent)
+        }
+        findViewById<View>(R.id.btnQuickHelp)?.setOnClickListener {
+            startActivity(Intent(this, HelpActivity::class.java))
+        }
+        findViewById<View>(R.id.btnQuickUninstall)?.setOnClickListener {
+            // Show in-app dialog with the 4 uninstall steps - no dashboard reference
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("🗑️ איך מסירים את KiddoLock?")
+                .setMessage("1. כבה את 'מצב ילדים' במסך הראשי.\n\n2. השבת מנהל מכשיר: הגדרות -> אבטחה -> אפליקציות מנהל מכשיר -> בטל את KiddoLock.\n\n3. הגדרות -> אפליקציות -> KiddoLock -> הסר.\n\n4. אם נעלת בטעות: בהתראה למעלה לחץ '❌ הסר', הזן PIN, ואז 'הסר עכשיו' - יבצע את 3 השלבים אוטומטית.\n\n🆘 שכחת PIN? יש לך קוד שחזור באימייל שהגדרת בעת ההתקנה.")
+                .setPositiveButton("הבנתי", null)
+                .show()
+        }
+
+        // 🔝 Scroll to top FAB
+        val fab = findViewById<View>(R.id.fabScrollToTop)
+        val scrollView = findViewById<androidx.core.widget.NestedScrollView>(R.id.mainScrollView)
+        scrollView?.viewTreeObserver?.addOnScrollChangedListener {
+            val show = (scrollView.scrollY ?: 0) > 600
+            fab?.visibility = if (show) View.VISIBLE else View.GONE
+        }
+        fab?.setOnClickListener {
+            scrollView?.smoothScrollTo(0, 0)
+        }
+
         // Time Management buttons (consolidated under App Management)
         findViewById<View>(R.id.btnBedtime).setOnClickListener {
             showBedtimePicker()
@@ -260,11 +300,39 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun filterApps(query: String) {
-        val filtered = allApps.filter { 
+        val byText = allApps.filter { 
             it.appName.contains(query, ignoreCase = true) || 
             it.packageName.contains(query, ignoreCase = true) 
         }
-        appListAdapter.updateApps(filtered)
+        val byMode = when (currentFilter) {
+            AppFilter.ALL -> byText
+            AppFilter.BLOCKED -> byText.filter { it.isBlacklisted }
+            AppFilter.OPEN -> byText.filter { !it.isBlacklisted }
+        }
+        appListAdapter.updateApps(byMode)
+    }
+
+    private fun setFilter(filter: AppFilter) {
+        currentFilter = filter
+        // Update button visuals
+        val btnAll = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnFilterAll)
+        val btnBlocked = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnFilterBlocked)
+        val btnOpen = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnFilterOpen)
+        // Reset all to outlined
+        listOf(btnAll, btnBlocked, btnOpen).forEach {
+            it?.backgroundTintList = android.content.res.ColorStateList.valueOf(0x00000000)
+            it?.setTextColor(getColor(R.color.glass_white_70))
+        }
+        // Highlight active
+        val active = when (filter) {
+            AppFilter.ALL -> btnAll to R.color.cyan_accent
+            AppFilter.BLOCKED -> btnBlocked to R.color.danger_red
+            AppFilter.OPEN -> btnOpen to R.color.success_green
+        }
+        active.first?.backgroundTintList = android.content.res.ColorStateList.valueOf(getColor(active.second))
+        active.first?.setTextColor(getColor(R.color.bg_dark))
+        // Re-apply current search query
+        filterApps(etSearch.text?.toString() ?: "")
     }
 
     private fun updateTimeValues() {
@@ -408,6 +476,16 @@ class AdminActivity : AppCompatActivity() {
     /**
      * חיבור אייקוני העזרה (?) במסך הניהול לדיאלוגי הסבר ידידותיים בעברית
      */
+
+    /**
+     * 🚨 פרצה תוקנה: לאחר יציאה מהאפליקציה, חזרה תחייב PIN שוב.
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        AdminPinManager.clearSession()
+        AdminActivity.resetSession()
+    }
+
     private fun wireHelpIcons() {
         val mapping = mapOf(
             R.id.btnHelpInsights to HelpTooltips.HelpTopic.PARENT_INSIGHTS,
