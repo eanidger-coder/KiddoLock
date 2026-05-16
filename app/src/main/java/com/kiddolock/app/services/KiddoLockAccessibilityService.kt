@@ -49,6 +49,18 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                     return
                 }
 
+                // BATTERY: If Kids Mode is OFF and no suppression timer, skip entire periodic loop.
+                // This makes the app effectively dormant (0% CPU) when the parent uses the phone.
+                // Re-check every 60 sec instead of every 10 sec.
+                try {
+                    val kidsOn = KidsModeManager(this@KiddoLockAccessibilityService).isEnabled
+                    if (!kidsOn) {
+                        Log.v(TAG, "Kids Mode OFF - dormant mode, next check in 60s")
+                        handler.postDelayed(this, 60000)
+                        return
+                    }
+                } catch (_: Throwable) {}
+
                 // REFRESH PACKAGE TRACKING: Ensure we aren't using a stale value from a missed event
                 val activePkg = rootInActiveWindow?.packageName?.toString()
                 if (activePkg != null && !activePkg.contains("com.android.systemui") && activePkg != packageName) {
@@ -189,6 +201,12 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             return
         }
 
+        // 🔋 BATTERY: If Kids Mode is off, exit IMMEDIATELY before any expensive work.
+        // This drops CPU to ~0% when the parent is using their own phone normally.
+        try {
+            if (!KidsModeManager(this).isEnabled) return
+        } catch (_: Throwable) { return }
+
         // 🔥 CRITICAL: Update foreground package tracking BEFORE debouncing.
         // Otherwise periodic checks (daily limit, bedtime, instant lock) use stale data and don't enforce.
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
@@ -204,10 +222,14 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                     && !AppBlockManager.isTemporarilyUnlocked(packageName)) {
                     Log.i(TAG, "⚡ INSTANT BLOCK: $packageName")
                     lastNavigationTime = System.currentTimeMillis()
-                    // ⚡ Show overlay FIRST so screen is covered instantly,
-                    // THEN go home (which can take 500-1500ms on some devices)
+                    // ⚡ Show overlay FIRST so screen is covered instantly.
+                    // Delay HOME by 250ms so the overlay actually renders before the
+                    // launcher takes focus - otherwise the child sees the app briefly
+                    // and then home with no explanation (CRIT-3 bug).
                     showBlockOverlay(packageName)
-                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    handler.postDelayed({
+                        try { performGlobalAction(GLOBAL_ACTION_HOME) } catch (_: Throwable) {}
+                    }, 250L)
                     return
                 }
             } catch (e: Exception) {
@@ -366,15 +388,25 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
         Log.i(TAG, "Showing block overlay for $packageName")
 
-        // FORCE navigate to Home — prevent blocked app from staying under the overlay
-        lastNavigationTime = System.currentTimeMillis() // Start guard
-        performGlobalAction(GLOBAL_ACTION_HOME)
-
+        // CRITICAL ORDER (fix CRIT-3): START overlay FIRST, then HOME. If we go HOME first,
+        // the kid sees a confusing "app just closed" effect for ~300ms before the overlay
+        // shows. Worse, on slow devices the overlay can fail entirely if the service is
+        // killed during the HOME transition.
         val intent = Intent(this, OverlayService::class.java).apply {
             action = "SHOW_OVERLAY"
             putExtra("package_name", packageName)
         }
-        startService(intent)
+        try {
+            startService(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start OverlayService - falling back to HOME only", e)
+        }
+
+        // Small delay so overlay window is laid out before we yank focus to home
+        handler.postDelayed({
+            lastNavigationTime = System.currentTimeMillis() // Start guard
+            performGlobalAction(GLOBAL_ACTION_HOME)
+        }, 120L)
 
         // MEMORY CLEANUP: kill the blocked app's background processes so it doesn't accumulate in RAM.
         // This frees memory and battery when the kid taps many blocked apps in sequence.

@@ -69,9 +69,50 @@ class TimeScheduler(private val context: Context) {
 
     /**
      * Check if the current time falls within a restricted period.
+     * Honors the "bonus time" feature - if parent granted extra time, all restrictions are
+     * temporarily lifted until the bonus expires.
      */
     fun isCurrentlyRestricted(): Boolean {
+        if (isBonusTimeActive()) return false  // bonus active = no restrictions
         return isBedtimeActive() || isDailyLimitReached() || isInstantLocked()
+    }
+
+    /**
+     * Parent grants bonus time - the kid gets [minutes] extra usage immediately, bypassing
+     * both daily limit and bedtime restrictions. The clock starts from the moment of grant.
+     */
+    fun grantBonusTime(minutes: Int) {
+        val expiry = System.currentTimeMillis() + (minutes.toLong() * 60 * 1000L)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putLong("bonus_time_until", expiry)
+            .apply()
+        Log.i(TAG, "Granted $minutes minutes bonus time (expires at $expiry)")
+        try { com.kiddolock.app.management.AppBlockManager.invalidateCache() } catch (_: Throwable) {}
+        try { com.kiddolock.app.utils.NotificationUtils.updateNotification(context, true) } catch (_: Throwable) {}
+    }
+
+    /** True while parent-granted bonus minutes are still in effect. */
+    fun isBonusTimeActive(): Boolean {
+        val until = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong("bonus_time_until", 0L)
+        return System.currentTimeMillis() < until
+    }
+
+    /** How many seconds of bonus time remain (0 if none). */
+    fun getBonusTimeRemainingSec(): Long {
+        val until = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong("bonus_time_until", 0L)
+        val remaining = until - System.currentTimeMillis()
+        return if (remaining > 0) remaining / 1000 else 0L
+    }
+
+    /** Parent revokes bonus time early. */
+    fun cancelBonusTime() {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .remove("bonus_time_until")
+            .apply()
+        Log.i(TAG, "Bonus time cancelled by parent")
+        try { com.kiddolock.app.management.AppBlockManager.invalidateCache() } catch (_: Throwable) {}
     }
 
     /**

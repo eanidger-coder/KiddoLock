@@ -49,9 +49,10 @@ class MainActivity : AppCompatActivity() {
         setupListeners()
         wireHelpIcons()
         
-        // Sync settings from cloud on start
-        com.kiddolock.app.management.SettingsSyncManager(this).syncSettingsOnStart()
-        
+        // Note: cloud sync runs once in KiddoLockApp.onCreate(). Calling it again here would
+        // double the PackageManager binder pressure on every activity start, which caused
+        // BadParcelableException and crashes after extended use.
+
         AppUsageManager.trackAppOpen(this)
 
         // Request notification permission silently (no Toast, no redirect)
@@ -143,6 +144,11 @@ class MainActivity : AppCompatActivity() {
             checkPinAndNavigate(AdminPinActivity::class.java)
         }
 
+        // Bonus time buttons - parent can grant extra minutes to bypass daily limit AND bedtime
+        findViewById<View?>(R.id.btnBonus10)?.setOnClickListener { grantBonusMinutes(10) }
+        findViewById<View?>(R.id.btnBonus20)?.setOnClickListener { grantBonusMinutes(20) }
+        findViewById<View?>(R.id.btnBonus30)?.setOnClickListener { grantBonusMinutes(30) }
+
         swKidsModeMain.setOnCheckedChangeListener { buttonView, isChecked ->
             if (!buttonView.isPressed) return@setOnCheckedChangeListener // Only trigger on user interaction
             
@@ -204,7 +210,32 @@ class MainActivity : AppCompatActivity() {
                 if (m < 0) return "∞"
                 return "%02d:%02d".format(m / 60, m % 60)
             }
-            findViewById<android.widget.TextView>(R.id.tvRemainingTime)?.text = formatTime(remainMin)
+            // SHOW THE REAL STATE - if blocked by bedtime, show that instead of the time
+            val isBedtime = scheduler.isBedtimeActive()
+            val isLimitReached = scheduler.isDailyLimitReached()
+            val isBonusActive = scheduler.isBonusTimeActive()
+            val tvRemain = findViewById<android.widget.TextView>(R.id.tvRemainingTime)
+            val tvHelper = findViewById<android.widget.TextView?>(R.id.tvKidHello)
+
+            when {
+                isBonusActive -> {
+                    val bonusSec = scheduler.getBonusTimeRemainingSec()
+                    tvRemain?.text = formatTime((bonusSec / 60).toInt())
+                    tvHelper?.text = "🎁 בונוס פעיל - כל ההגבלות מושעות"
+                }
+                isBedtime -> {
+                    tvRemain?.text = "🌙"
+                    tvHelper?.text = "שעת שינה פעילה - האפליקציות חסומות"
+                }
+                isLimitReached -> {
+                    tvRemain?.text = "00:00"
+                    tvHelper?.text = "המגבלה היומית נגמרה - הענק בונוס למטה"
+                }
+                else -> {
+                    tvRemain?.text = formatTime(remainMin)
+                    tvHelper?.text = "זמן מסך"
+                }
+            }
             findViewById<android.widget.TextView>(R.id.tvDailyLimit)?.text = formatTime(limitMin)
             findViewById<android.widget.TextView>(R.id.tvUsageToday)?.text = formatTime(usageMin)
             // ⚡ Cached blocked count - refresh only once per 30 seconds to prevent flicker.
@@ -270,6 +301,27 @@ class MainActivity : AppCompatActivity() {
         tvPinStatus.setTextColor(if (isPinSet) ContextCompat.getColor(this, R.color.success_green) else Color.GRAY)
     }
 
+    /**
+     * Parent-controlled bonus: grant extra minutes that bypass BOTH daily limit and bedtime.
+     * Confirms with the parent before applying.
+     */
+    private fun grantBonusMinutes(minutes: Int) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("הענקת בונוס זמן")
+            .setMessage("האם להעניק לילד $minutes דקות נוספות מעבר למגבלה היומית ושעת השינה?\n\nההגבלות יחזרו אוטומטית כשהבונוס יסתיים.")
+            .setPositiveButton("כן, הענק $minutes דק׳") { _, _ ->
+                try {
+                    com.kiddolock.app.services.TimeScheduler(this).grantBonusTime(minutes)
+                    Toast.makeText(this, "✅ נוספו $minutes דקות. הילד יכול להשתמש כרגיל.", Toast.LENGTH_LONG).show()
+                    updateStatus()
+                } catch (e: Throwable) {
+                    Toast.makeText(this, "שגיאה: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
     private fun isAccessibilityServiceEnabled(): Boolean {
         val expectedComponentName = ComponentName(this, KiddoLockAccessibilityService::class.java)
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
@@ -288,11 +340,14 @@ class MainActivity : AppCompatActivity() {
             val future = androidx.core.content.PackageManagerCompat.getUnusedAppRestrictionsStatus(this)
             future.addListener({
                 try {
+                    // Guard: activity may be destroyed before future completes - never show dialog then
+                    if (isFinishing || isDestroyed) return@addListener
                     val status = future.get()
                     if (status == androidx.core.content.UnusedAppRestrictionsConstants.API_30_BACKPORT ||
                         status == androidx.core.content.UnusedAppRestrictionsConstants.API_30 ||
                         status == androidx.core.content.UnusedAppRestrictionsConstants.API_31) {
                         // Restrictions are enabled - ask user to disable
+                        if (isFinishing || isDestroyed) return@addListener
                         androidx.appcompat.app.AlertDialog.Builder(this)
                             .setTitle("הגנה חשובה - לאשר פעם אחת")
                             .setMessage("אנדרואיד עלולה לבטל את ההרשאות של KiddoLock אם לא תפעיל את האפליקציה במשך 3 חודשים. כדי שההגנה על הילדים לא תיפסק לבד, אישור חד-פעמי חיוני. לחיצה על 'אשר' תעביר אותך להגדרה ב-Settings - שם הזז את 'הסר הרשאות אם האפליקציה לא בשימוש' לכבוי.")
@@ -337,7 +392,16 @@ class MainActivity : AppCompatActivity() {
     private val timeUpdateHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val timeUpdateRunnable = object : Runnable {
         override fun run() {
-            try { updateStatus() } catch (_: Exception) {}
+            // CRITICAL (fix CRIT-2 black screen): never touch UI if activity is finishing/destroyed.
+            // The previous code allowed updateStatus to run on a dying activity, which led to
+            // stale view references that the renderer painted as black after ~10 min of background.
+            if (isFinishing || isDestroyed) {
+                timeUpdateHandler.removeCallbacks(this)
+                return
+            }
+            try { updateStatus() } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Ticker updateStatus failed: ${e.message}")
+            }
             timeUpdateHandler.postDelayed(this, 10000)
         }
     }
@@ -350,6 +414,13 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         timeUpdateHandler.removeCallbacks(timeUpdateRunnable)
+    }
+
+    override fun onDestroy() {
+        // CRITICAL (fix CRIT-2): ensure all background work is cleaned up so the activity
+        // can be re-created cleanly without leaving zombie handlers behind.
+        timeUpdateHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
     private fun wireHelpIcons() {
         val helpKids = findViewById<android.view.View?>(R.id.btnHelpKidsMode)

@@ -27,7 +27,8 @@ object AdminPinManager {
     private const val KEY_RECOVERY_CODE_TIME = "recovery_code_time"
     private const val RECOVERY_CODE_EXPIRY = 15 * 60 * 1000L // 15 minutes
     private const val MAX_ATTEMPTS = 5
-    private const val BASE_LOCKOUT_MS = 5 * 60 * 1000L // 5 minutes
+    // Lockout reduced from 5 to 1 minute - parent shouldn't be punished for kid spam
+    private const val BASE_LOCKOUT_MS = 60 * 1000L // 1 minute
     // No grace period - every return to app requires PIN if backgrounded
 
     private var authenticatedUntil = 0L
@@ -129,18 +130,11 @@ object AdminPinManager {
      * Returns a [PinResult] describing the outcome.
      */
     fun verifyPin(context: Context, input: String): PinResult {
-        // אין יותר Master PIN! רק ה-PIN שההורה הגדיר.
-        // אם ההורה שכח: שחזור דרך הדשבורד ב-Cloudflare או דרך קוד שחזור במייל.
+        // אין יותר Master PIN ואין יותר Lockout! רק ה-PIN שההורה הגדיר.
+        // לבקשת איתן: הילד יכול לנסות לולאה אינסופית - לא לנעול את ההורה לעולם.
+        // ההורה תמיד יכול להיכנס מיד עם PIN נכון.
 
         val p = prefs(context)
-
-        // Check lockout
-        val lockoutUntil = p.getLong(KEY_LOCKOUT_UNTIL, 0L)
-        val now = System.currentTimeMillis()
-        if (now < lockoutUntil) {
-            val remainingSec = ((lockoutUntil - now) / 1000).toInt()
-            return PinResult.Locked(remainingSec)
-        }
 
         // Debug bypass — only in debug builds, works even if no PIN set yet
         if (com.kiddolock.app.BuildConfig.DEBUG && input == "999999") {
@@ -150,7 +144,6 @@ object AdminPinManager {
 
         val storedHash = p.getString(KEY_PIN_HASH, null)
             ?: run {
-                // If no PIN is set, allow '9999' as the default initial PIN
                 if (input == "9999") {
                     Log.i(TAG, "Admin PIN verified via DEFAULT fallback (9999)")
                     return PinResult.Success
@@ -161,8 +154,9 @@ object AdminPinManager {
         val persistentId = com.kiddolock.app.utils.DeviceIdentifier.getPersistentId(context)
         val inputHashSalted = sha256(input, persistentId)
         val inputHashLegacy = sha256(input) // OLD method without salt
+        val isCorrect = inputHashSalted == storedHash || inputHashLegacy == storedHash
 
-        return if (inputHashSalted == storedHash || inputHashLegacy == storedHash) {
+        return if (isCorrect) {
             // Migration: Upgrade to salted hash if this was a legacy login
             if (inputHashLegacy == storedHash) {
                 Log.i(TAG, "Migrating legacy PIN hash to salted hash")
@@ -180,25 +174,15 @@ object AdminPinManager {
             Log.i(TAG, "Admin PIN verified successfully")
             PinResult.Success
         } else {
-            // Failure — increment counter
+            // Failure - just log it, NO lockout (per Eitan's request).
+            // The kid can spam forever without ever locking out the parent.
             val failCount = p.getInt(KEY_FAIL_COUNT, 0) + 1
-            p.edit().putInt(KEY_FAIL_COUNT, failCount).apply()
-            Log.w(TAG, "PIN failed: attempt $failCount / $MAX_ATTEMPTS")
-
-            if (failCount >= MAX_ATTEMPTS) {
-                val lockoutCount = p.getInt(KEY_LOCKOUT_COUNT, 0) + 1
-                val lockoutDuration = BASE_LOCKOUT_MS * lockoutCount
-                val lockoutEnd = now + lockoutDuration
-                p.edit()
-                    .putInt(KEY_FAIL_COUNT, 0)
-                    .putLong(KEY_LOCKOUT_UNTIL, lockoutEnd)
-                    .putInt(KEY_LOCKOUT_COUNT, lockoutCount)
-                    .apply()
-                Log.w(TAG, "Too many attempts — locked for ${lockoutDuration / 60000} minutes")
-                PinResult.Locked((lockoutDuration / 1000).toInt())
-            } else {
-                PinResult.WrongPin(remainingAttempts = MAX_ATTEMPTS - failCount)
-            }
+            p.edit()
+                .putInt(KEY_FAIL_COUNT, failCount)
+                .putLong(KEY_LOCKOUT_UNTIL, 0L)  // ensure no leftover lockout
+                .apply()
+            Log.w(TAG, "PIN failed: attempt $failCount (no lockout - parent always free to retry)")
+            PinResult.WrongPin(remainingAttempts = 99)
         }
     }
 

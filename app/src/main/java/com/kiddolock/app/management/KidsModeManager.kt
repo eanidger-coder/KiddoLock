@@ -16,9 +16,20 @@ class KidsModeManager(private val context: Context) {
         set(value) {
             prefs.edit().putBoolean("kids_mode_enabled", value).apply()
             Log.i("KidsModeManager", "Kids Mode ${if (value) "ENABLED" else "DISABLED"}")
-            
-            // Push settings to cloud whenever status changes
-            SettingsSyncManager(context).pushSettings()
+
+            // Refresh notification IMMEDIATELY - dormant gray vs active green
+            try {
+                com.kiddolock.app.utils.NotificationUtils.updateNotification(context, value)
+            } catch (e: Throwable) {
+                Log.w("KidsModeManager", "Could not refresh notification: " + e.message)
+            }
+
+            // Push settings to cloud whenever status changes (best-effort, may fail silently)
+            try {
+                SettingsSyncManager(context).pushSettings()
+            } catch (e: Throwable) {
+                Log.w("KidsModeManager", "Cloud sync skipped: " + e.message)
+            }
         }
 
 

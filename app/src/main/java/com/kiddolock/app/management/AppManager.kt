@@ -120,8 +120,9 @@ class AppManager(private val context: Context) {
         "com.kraken.android",                   // Crypto
 
         // 📹 YouTube + ALL alternative clients (kids try these to bypass parental controls)
+        // NOTE: YouTube Kids (com.google.android.apps.youtube.kids) is intentionally NOT here -
+        // it is age-appropriate by design and should remain available to children.
         "com.google.android.youtube",
-        "com.google.android.apps.youtube.kids",
         "com.google.android.apps.youtube.music",     // YouTube Music
         "com.google.android.apps.youtube.creator",   // YouTube Studio
         "com.vanced.android.youtube",                // YouTube Vanced (legacy)
@@ -143,7 +144,6 @@ class AppManager(private val context: Context) {
         "com.kapp.youtube",                          // SnapTube older
         "com.touchtype.swiftkey.tubeapp",
         "com.dvtonder.chronus.youtube",
-        "co.uk.youtube.kids.client",
         "com.google.android.googlequicksearchbox",   // Google Search
 
         // 🎬 ALL major streaming services (block by default, parent unlocks if appropriate)
@@ -407,12 +407,13 @@ class AppManager(private val context: Context) {
     private val launcherPackages = HashSet<String>()
     private var lastLauncherUpdate = 0L
 
-    // Apps that bypass Time Restrictions by default but CAN be manually locked by parent
+    // TIER 1 - ALWAYS ALLOWED apps. Even during bedtime and after daily limit.
+    // These are safety-critical (emergency calls, family contact, app itself).
     val ESSENTIAL_APPS_WHITELIST = setOf(
         // Dialer (essential for emergency calls)
         "com.android.dialer",
         "com.google.android.dialer",
-        "com.samsung.android.dialer",          // Samsung Dialer
+        "com.samsung.android.dialer",
         "com.android.phone",
         // Contacts
         "com.android.contacts",
@@ -421,11 +422,18 @@ class AppManager(private val context: Context) {
         // SMS / Messages (built-in)
         "com.android.mms",
         "com.google.android.apps.messaging",
-        "com.samsung.android.messaging",       // Samsung Messages
+        "com.samsung.android.messaging",
         // WhatsApp - the Israeli family standard
         "com.whatsapp",
-        // KiddoLock itself
+        // KiddoLock itself (cannot block ourselves)
         "com.kiddolock.app"
+    )
+
+    // TIER 2 - KID-FRIENDLY apps. Allowed in Kids Mode (not on blacklist), but STILL respect
+    // bedtime and daily limit. So YouTube Kids works during the day, but bedtime locks it.
+    val KIDS_FRIENDLY_WHITELIST = setOf(
+        "com.google.android.apps.youtube.kids",
+        "com.google.android.apps.kids.familylink"
     )
 
     // Active blacklist (user-configurable)
@@ -456,7 +464,7 @@ class AppManager(private val context: Context) {
             blacklistedApps.add("com.xiaomi.mipicks")
             blacklistedApps.add("com.google.android.googlequicksearchbox")
             blacklistedApps.add("com.google.android.youtube")
-            blacklistedApps.add("com.google.android.apps.youtube.kids")
+            // YouTube Kids removed - it's safe for children by design
             blacklistedApps.add("com.google.android.apps.photos")
             blacklistedApps.add("com.sec.android.gallery3d")
             blacklistedApps.add("com.google.android.apps.docs")
@@ -574,6 +582,16 @@ class AppManager(private val context: Context) {
             saveBlacklist()
             prefs.edit().putInt("blacklist_version", 14).apply()
             Log.i(TAG, "Migration V14: File managers added (delta=${blacklistedApps.size - before})")
+        }
+
+        // Migration: V15 - Remove YouTube Kids from blacklist (was wrongly added in earlier versions).
+        // YouTube Kids is designed for children with parental controls built in - safe by default.
+        if (blacklistVersion < 15) {
+            val removed = blacklistedApps.remove("com.google.android.apps.youtube.kids")
+            blacklistedApps.remove("co.uk.youtube.kids.client")  // alternate kids client - also safe
+            if (removed) saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 15).apply()
+            Log.i(TAG, "Migration V15: YouTube Kids unblocked (removed=$removed)")
         }
 
         val savedBlacklist = prefs.getStringSet(KEY_BLACKLISTED_APPS, null)

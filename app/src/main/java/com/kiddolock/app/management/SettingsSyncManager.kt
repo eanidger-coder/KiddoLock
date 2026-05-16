@@ -20,10 +20,18 @@ import java.util.concurrent.TimeUnit
  * Manages syncing of consolidated app settings with the Cloudflare backend.
  */
 class SettingsSyncManager(private val context: Context) {
-    
+
     companion object {
+        // Global throttle: prevent multiple parallel pushes that overload binder.
+        // Each push calls PackageManager.getInstalledApplications() which is heavy.
+        @Volatile private var lastPushAtMs: Long = 0L
+        @Volatile private var lastPullAtMs: Long = 0L
+        @Volatile private var pushInFlight: Boolean = false
+        @Volatile private var pullInFlight: Boolean = false
+        private const val MIN_INTERVAL_MS: Long = 30_000L  // 30 seconds between syncs
+
         fun syncNow(context: Context) {
-             SettingsSyncManager(context).pushSettings()
+            SettingsSyncManager(context).pushSettings()
         }
     }
 
@@ -49,8 +57,20 @@ class SettingsSyncManager(private val context: Context) {
     )
 
     fun syncSettingsOnStart() {
+        // CRITICAL FIX (P1 HIGH-2): only pull on FIRST run after install. Otherwise the cloud
+        // overwrites the parent's local blacklist edits each time the app opens, making it
+        // impossible to un-block an app via the management screen.
+        val prefs = context.getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
+        val pulledBefore = prefs.getBoolean("initial_pull_done", false)
+        if (pulledBefore) {
+            Log.d("SettingsSync", "Skipping pull-on-start - local is the source of truth after first run")
+            return
+        }
         pullSettings { success ->
-            if (success) Log.i("SettingsSync", "Initial settings pull successful")
+            if (success) {
+                prefs.edit().putBoolean("initial_pull_done", true).apply()
+                Log.i("SettingsSync", "Initial settings pull successful - future starts will skip pull")
+            }
         }
     }
 
@@ -58,6 +78,15 @@ class SettingsSyncManager(private val context: Context) {
      * Pulls the latest settings from the cloud for this device.
      */
     fun pullSettings(onComplete: ((Boolean) -> Unit)? = null) {
+        // Throttle: skip if a pull is already in flight or last pull was within MIN_INTERVAL_MS
+        val now = System.currentTimeMillis()
+        if (pullInFlight || (now - lastPullAtMs) < MIN_INTERVAL_MS) {
+            Log.d("SettingsSync", "Skip pull: inFlight=$pullInFlight, age=${now - lastPullAtMs}ms")
+            onComplete?.invoke(false)
+            return
+        }
+        pullInFlight = true
+        lastPullAtMs = now
         GlobalScope.launch(Dispatchers.IO) {
             try {
                 val deviceId = DeviceIdentifier.getPersistentId(context)
@@ -106,6 +135,8 @@ class SettingsSyncManager(private val context: Context) {
             } catch (e: Exception) {
                 Log.e("SettingsSync", "Error pulling settings", e)
                 onComplete?.invoke(false)
+            } finally {
+                pullInFlight = false
             }
         }
     }
@@ -114,6 +145,15 @@ class SettingsSyncManager(private val context: Context) {
      * Pushes local settings to the cloud.
      */
     fun pushSettings(onComplete: ((Boolean) -> Unit)? = null) {
+        // Throttle: prevent multiple parallel pushes that overload PackageManager binder.
+        val now = System.currentTimeMillis()
+        if (pushInFlight || (now - lastPushAtMs) < MIN_INTERVAL_MS) {
+            Log.d("SettingsSync", "Skip push: inFlight=$pushInFlight, age=${now - lastPushAtMs}ms")
+            onComplete?.invoke(false)
+            return
+        }
+        pushInFlight = true
+        lastPushAtMs = now
         GlobalScope.launch(Dispatchers.IO) {
             try {
                 val deviceId = DeviceIdentifier.getPersistentId(context)
@@ -155,6 +195,8 @@ class SettingsSyncManager(private val context: Context) {
             } catch (e: Exception) {
                 Log.e("SettingsSync", "Error pushing settings", e)
                 onComplete?.invoke(false)
+            } finally {
+                pushInFlight = false
             }
         }
     }

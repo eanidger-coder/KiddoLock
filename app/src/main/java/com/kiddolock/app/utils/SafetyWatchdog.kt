@@ -30,8 +30,10 @@ object SafetyWatchdog {
     private const val KEY_AUTO_DISABLED_AT = "auto_disabled_at"
     private const val KEY_LAST_CRASH_MSG = "last_crash_msg"
 
-    private const val CRASH_THRESHOLD = 3
-    private const val CRASH_WINDOW_MS = 10L * 60 * 1000          // 10 minutes
+    // CRIT-1 fix: lower threshold from 3/10min to 2/5min so the parent doesn't
+    // get stuck for 5 minutes during a crash loop before the watchdog kicks in.
+    private const val CRASH_THRESHOLD = 2
+    private const val CRASH_WINDOW_MS = 5L * 60 * 1000           // 5 minutes
     private const val COUNTER_RESET_AFTER_MS = 30L * 60 * 1000   // reset history after 30 min calm
 
     @Volatile private var installed = false
@@ -116,7 +118,7 @@ object SafetyWatchdog {
      * (or anyone) can navigate to Settings and uninstall.
      */
     private fun autoDisableProtection(context: Context, crashCount: Int) {
-        Log.e(TAG, "EMERGENCY: $crashCount crashes in 10 min - DISABLING ALL PROTECTION")
+        Log.e(TAG, "EMERGENCY: $crashCount crashes in 5 min - DISABLING ALL PROTECTION")
         try {
             // Master switch OFF
             KidsModeManager(context).isEnabled = false
@@ -134,6 +136,19 @@ object SafetyWatchdog {
             Prefs(context).emergency_bypass_until = System.currentTimeMillis() + (60L * 60 * 1000)  // 1 hour
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to set emergency bypass", e)
+        }
+        try {
+            // CRIT-1: also remove Device Admin so the user can uninstall normally via Settings.
+            // Without this, after auto-disable the parent still can't remove KiddoLock until
+            // they manually deactivate Device Admin first.
+            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? android.app.admin.DevicePolicyManager
+            val admin = android.content.ComponentName(context, com.kiddolock.app.receivers.KiddoDeviceAdminReceiver::class.java)
+            if (dpm != null && dpm.isAdminActive(admin)) {
+                dpm.removeActiveAdmin(admin)
+                Log.w(TAG, "Device Admin removed - parent can now uninstall via Settings")
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to remove Device Admin", e)
         }
         prefs(context).edit()
             .putLong(KEY_AUTO_DISABLED_AT, System.currentTimeMillis())

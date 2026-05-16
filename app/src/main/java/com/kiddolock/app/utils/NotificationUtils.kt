@@ -21,6 +21,7 @@ object NotificationUtils {
     const val ACTION_BLOCK_LAST = "com.kiddolock.app.BLOCK_LAST_SITE"
     const val ACTION_EMERGENCY_UNINSTALL = "com.kiddolock.app.EMERGENCY_UNINSTALL"
     const val ACTION_EMERGENCY_UNLOCK = "com.kiddolock.app.EMERGENCY_UNLOCK"
+    const val ACTION_PAUSE_PROTECTION_1H = "com.kiddolock.app.PAUSE_PROTECTION_1H"
 
     private var isProtectionActive = false
 
@@ -51,9 +52,17 @@ object NotificationUtils {
     fun buildNotification(context: Context, active: Boolean): Notification {
         createNotificationChannel(context)
         isProtectionActive = active
-        
-        val title = if (active) "KiddoLock: הגנה פעילה 🛡️" else "KiddoLock: בהמתנה"
-        val content = if (active) "המכשיר מוגן ומנוטר בזמן אמת" else "לחץ להפעלת ההגנה"
+
+        // Real source of truth - check Kids Mode + suppression state in case caller passed stale value
+        val kidsModeOn = try { com.kiddolock.app.management.KidsModeManager(context).isEnabled } catch (_: Throwable) { active }
+        val suppressed = try { com.kiddolock.app.management.AppBlockManager.isGlobalSuppressed } catch (_: Throwable) { false }
+        val effectiveActive = kidsModeOn && !suppressed
+
+        val title = when {
+            !effectiveActive -> "KiddoLock במצב חופשי"
+            else -> "KiddoLock: הגנה פעילה"
+        }
+        val content = if (effectiveActive) "המכשיר מוגן ומנוטר בזמן אמת" else "לחץ להפעלת ההגנה"
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -109,12 +118,11 @@ object NotificationUtils {
             }
         } catch (_: Exception) {}
 
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        // Build notification - DIFFERENT priority/style based on Kids Mode state
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(dynamicTitle)
             .setContentText(dynamicContent)
             .setSmallIcon(R.drawable.ic_shield)
-            .setColor(0xFF4CAF50.toInt()) // Green color for active protection
-            .setPriority(NotificationCompat.PRIORITY_LOW) 
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -123,9 +131,19 @@ object NotificationUtils {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setAutoCancel(false)
-            .addAction(R.drawable.ic_lock_open, "🔓 שחרור (PIN)", unlockPendingIntent)
-            .addAction(R.drawable.ic_status_pending, "❌ הסר (PIN)", uninstallPendingIntent)
-            .build()
+
+        if (effectiveActive) {
+            // ACTIVE: Green color, emergency actions available
+            builder.setColor(0xFF4CAF50.toInt())  // Green
+            builder.setPriority(NotificationCompat.PRIORITY_LOW)
+            builder.addAction(R.drawable.ic_lock_open, "שחרור", unlockPendingIntent)
+            builder.addAction(R.drawable.ic_status_pending, "מחק לגמרי", uninstallPendingIntent)
+        } else {
+            // DORMANT: Gray, minimal priority, no emergency buttons (nothing to bypass)
+            builder.setColor(0xFF6B6780.toInt())  // Gray
+            builder.setPriority(NotificationCompat.PRIORITY_MIN)
+        }
+        return builder.build()
     }
 
     /**
@@ -162,7 +180,18 @@ object NotificationUtils {
         manager.cancel(SETUP_NOTIFICATION_ID)
     }
 
+    // Throttle: avoid rapid rebuilds that cause status-bar flicker
+    @Volatile private var lastNotifPostMs: Long = 0L
+    @Volatile private var lastNotifActive: Boolean? = null
+
     fun updateNotification(context: Context, active: Boolean = isProtectionActive) {
+        val now = System.currentTimeMillis()
+        // Only repost if state CHANGED, or if more than 30s passed
+        if (lastNotifActive == active && (now - lastNotifPostMs) < 30_000L) {
+            return
+        }
+        lastNotifActive = active
+        lastNotifPostMs = now
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(KIDDO_NOTIFICATION_ID, buildNotification(context, active))
     }

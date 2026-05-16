@@ -21,11 +21,19 @@ object AppBlockManager {
         
         val prefs = Prefs(appContext)
 
-        // Sync global suppression with persistent state (survives restarts)
+        // Sync global suppression with persistent state (survives restarts).
+        // SANITY CHECK: clamp absurd values (> 24h) that could come from Android Auto Backup
+        // restoring an old "10 year permanent bypass" state. No legitimate flow needs more than 1h.
         val bypassUntil = prefs.emergency_bypass_until
-        if (System.currentTimeMillis() < bypassUntil) {
+        val now = System.currentTimeMillis()
+        val maxValid = now + 60L * 60 * 1000  // at most 1 hour into the future
+        if (bypassUntil > maxValid) {
+            Log.w("AppBlockManager", "Clamping suspicious bypass timestamp (was ${(bypassUntil-now)/1000}s in future) to 0")
+            prefs.emergency_bypass_until = 0L
+            isGlobalSuppressed = false
+        } else if (now < bypassUntil) {
             isGlobalSuppressed = true
-            Log.i("AppBlockManager", "Restored persistent global suppression (active for ${((bypassUntil - System.currentTimeMillis())/1000)}s)")
+            Log.i("AppBlockManager", "Restored persistent global suppression (active for ${((bypassUntil - now)/1000)}s)")
         } else {
             isGlobalSuppressed = false
         }
@@ -134,7 +142,14 @@ object AppBlockManager {
     fun isAppBlocked(context: Context, packageName: String): Boolean {
         // Safety: NEVER block our own app
         if (packageName == context.packageName) return false
-        
+
+        // CRITICAL: NEVER block keyboards/IMEs/TTS - they are popups inside other apps.
+        // If we block them, every text field in WhatsApp/Messages/etc gets a white page.
+        if (isInputMethodPackage(context, packageName)) {
+            Log.v("AppBlockManager", "[DECISION] ALLOW $packageName: Input Method (keyboard/voice)")
+            return false
+        }
+
         ensureInitialized(context)
 
         // 0. Check for global suppression (Emergency bypass)
@@ -179,30 +194,41 @@ object AppBlockManager {
 
             // 0.2 Kids Mode Default Protections (Priority over system whitelist for launchers)
             if (kidsModeManager.isEnabled) {
-                // Note: We no longer block the home screen (launcher) here. 
-                // We rely on the child being restricted to approved apps.
-                // If the parent wants to lock positions, they use the "Lock Home Layout" feature.
-                
+                // TIER 1 - ALWAYS ALLOWED (dialer, SMS, contacts, WhatsApp, ourselves).
+                // Bypass even bedtime and daily limit because safety-critical.
+                if (appManager.ESSENTIAL_APPS_WHITELIST.contains(packageName)) {
+                    Log.v("AppBlockManager", "[DECISION] ALLOW $packageName: ESSENTIAL - always accessible")
+                    return false
+                }
+
+                // TIER 2 - KID-FRIENDLY (YouTube Kids). Skip the blacklist+browser check, but
+                // FALL THROUGH to bedtime/daily-limit so it still gets blocked at night.
+                val isKidFriendly = appManager.KIDS_FRIENDLY_WHITELIST.contains(packageName)
+                if (isKidFriendly) {
+                    Log.v("AppBlockManager", "[DECISION] passthrough kid-friendly $packageName - will check bedtime/limit")
+                    // skip blacklist/browser checks below, jump straight to time check
+                } else {
+
                 // In Kids Mode, we check the standard blacklist.
                 if (appManager.isBlacklisted(packageName)) {
                     Log.d("AppBlockManager", "[DECISION] BLOCK $packageName: Specifically blacklisted in Kids Mode")
                     return true
                 }
-                
+
                 // 0.2 Check for Critical Safeguards (moved after bypass)
                 if (isCriticalApp(packageName)) {
                     Log.w("AppBlockManager", "[DECISION] BLOCK $packageName: Critical app restriction (Kids Mode)")
                     return true
                 }
-                
-                // NEW: Block all browsers by default in Kids Mode
-                if (appManager.isBrowser(packageName)) {
-                    Log.d("AppBlockManager", "[DECISION] BLOCK $packageName: Automatic browser blocking in Kids Mode")
-                    return true
-                }
+
+                // REMOVED: isBrowser() auto-block was too aggressive - it matched any app
+                // that handles HTTP intents (ChatGPT, Google Translate, Maps, etc.). Real
+                // browsers (Chrome, Firefox, Edge, Brave, etc.) are already in DEFAULT_BLACKLIST,
+                // so the explicit blacklist is enough. No more false positives.
 
                 Log.v("AppBlockManager", "[DECISION] ALLOW $packageName: Passing Kids Mode whitelist")
                 // fall through to other checks (like bedtime) if they apply
+                } // end else for kid-friendly
             }
 
             // 1. Check if it's a CORE critical system app
@@ -326,19 +352,74 @@ object AppBlockManager {
         context.startActivity(intent)
     }
 
+    // Cached IME list (refreshed when null or stale)
+    private var imePackagesCache: Set<String>? = null
+    private var imeCacheTimeMs: Long = 0L
+    private const val IME_CACHE_TTL_MS = 60_000L  // refresh every minute
+
+    /**
+     * Returns true if the package is an Input Method Editor (keyboard/voice input service).
+     * KiddoLock must NEVER block IMEs - they're not user-launched apps; they pop up inside
+     * other apps when the user taps a text field. Blocking them shows a white page.
+     */
+    private fun isInputMethodPackage(context: Context, packageName: String): Boolean {
+        // Fast path: well-known keyboards
+        val hardcoded = setOf(
+            "com.touchtype.swiftkey",                          // SwiftKey
+            "com.google.android.inputmethod.latin",            // Gboard
+            "com.google.android.tts",                          // Google TTS / voice
+            "com.samsung.android.honeyboard",                  // Samsung Keyboard (modern)
+            "com.sec.android.inputmethod",                     // Samsung Keyboard (legacy)
+            "com.sec.android.inputmethod.beta",
+            "com.samsung.android.svoiceime",                   // Samsung voice input
+            "kr.co.iconnect.mh_global",                        // Multiling O keyboard
+            "com.menny.android.anysoftkeyboard",               // AnySoftKeyboard
+            "com.android.inputmethod.latin",                   // AOSP Latin IME
+            "com.android.inputmethod.pinyin"
+        )
+        if (hardcoded.contains(packageName)) return true
+
+        // Dynamic detection: ask InputMethodManager for enabled IMEs
+        try {
+            val now = System.currentTimeMillis()
+            if (imePackagesCache == null || (now - imeCacheTimeMs) > IME_CACHE_TTL_MS) {
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                val list = imm?.inputMethodList ?: emptyList()
+                imePackagesCache = list.map { it.packageName }.toSet()
+                imeCacheTimeMs = now
+            }
+            return imePackagesCache?.contains(packageName) == true
+        } catch (e: Throwable) {
+            return false
+        }
+    }
+
     fun setGlobalSuppression(context: Context, suppressed: Boolean, isPermanent: Boolean = false) {
         isGlobalSuppressed = suppressed
         val prefs = Prefs(context)
         if (suppressed) {
-            // If permanent, set to a date far in the future (e.g. 10 years). 
-            // Otherwise, used for the 8888 failsafe (10 min).
-            val duration = if (isPermanent) 3650L * 24 * 60 * 60 * 1000L else 10 * 60 * 1000L
+            // CRITICAL FIX: cap the "permanent" suppression at 1 hour. The previous 10-year
+            // value was being persisted across app starts and silently disabled all blocking
+            // for the device's lifetime if the parent ever triggered an emergency uninstall
+            // and then canceled (chose "מאוחר יותר"). 1 hour gives plenty of time to uninstall
+            // without leaving the device permanently unprotected.
+            val duration = if (isPermanent) 60L * 60 * 1000L else 10 * 60 * 1000L
             prefs.emergency_bypass_until = System.currentTimeMillis() + duration
-            Log.i("AppBlockManager", "Global suppression ENABLED (${if (isPermanent) "until reset" else "10 min"})")
+            Log.i("AppBlockManager", "Global suppression ENABLED (${if (isPermanent) "1 hour" else "10 min"})")
         } else {
             prefs.emergency_bypass_until = 0
             Log.i("AppBlockManager", "Global suppression DISABLED")
         }
+    }
+
+    /**
+     * Force-clear any active global suppression. Called when the parent re-enables Kids Mode
+     * after toggling it off, so a leftover bypass timer doesn't silently keep blocking off.
+     */
+    fun clearGlobalSuppression(context: Context) {
+        isGlobalSuppressed = false
+        Prefs(context).emergency_bypass_until = 0
+        Log.i("AppBlockManager", "Global suppression FORCE-CLEARED by user action")
     }
 
     /** Expert QA Hook: Dumps current configuration state to Logcat */

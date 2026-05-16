@@ -90,6 +90,23 @@
             </intent-filter>
         </activity>
 
+        <!-- Emergency Recovery (always-available escape hatch).
+             Runs in its own process so it survives even if the main app crashes.
+             Has its own launcher icon visible alongside the main KiddoLock icon. -->
+        <activity
+            android:name=".ui.RecoveryActivity"
+            android:exported="true"
+            android:label="KiddoLock חירום"
+            android:process=":recovery"
+            android:taskAffinity="com.kiddolock.app.recovery"
+            android:excludeFromRecents="false"
+            android:launchMode="singleInstance">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <!-- Setup Wizard -->
         <activity
             android:name=".ui.SetupActivity"

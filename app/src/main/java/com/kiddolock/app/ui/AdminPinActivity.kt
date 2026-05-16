@@ -357,9 +357,9 @@ class AdminPinActivity : AppCompatActivity() {
         }
 
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("✅ המצב השתנה - ההגנה הוסרה")
-            .setMessage("כל החסימות בוטלו. עכשיו אתה יכול להסיר את KiddoLock מהמכשיר.\n\nלחץ על 'הסר עכשיו' ותועבר אוטומטית למסך ההסרה של אנדרואיד.")
-            .setPositiveButton("הסר עכשיו") { _, _ ->
+            .setTitle("⚠️ עצור! זה לא כיבוי מצב ילדים")
+            .setMessage("הכפתור הזה ימחק את KiddoLock לגמרי מהמכשיר!\n\n🚫 אם רק רצית שהילד יוכל להשתמש כרגיל:\n   • סגור חלון זה (ביטול)\n   • פתח את KiddoLock במסך הראשי\n   • כבה את 'מצב ילדים' בלחיצה אחת\n\n⚠️ אם תמשיך במחיקה:\n   • הילד יוכל להשתמש בכל האפליקציות\n   • כל ההגדרות יישמרו בענן ויחזרו בהתקנה מחדש\n   • תצטרך להתקין את ה-APK שוב כדי להפעיל הגנה\n   • תהליך לוקח 5-10 דקות (הרשאות + Device Admin)\n\nרוב ההורים לא צריכים למחוק - רק לכבות את מצב ילדים.")
+            .setPositiveButton("כן, מחק את KiddoLock") { _, _ ->
                 try {
                     AppBlockManager.uninstallSelf(this)
                 } catch (e: Exception) {
@@ -368,9 +368,15 @@ class AdminPinActivity : AppCompatActivity() {
                 setResult(RESULT_OK)
                 finish()
             }
-            .setNegativeButton("מאוחר יותר") { _, _ ->
-                Toast.makeText(this, "ההגנה כבויה לשעה. תוכל להסיר ידנית מהגדרות", Toast.LENGTH_LONG).show()
-                setResult(RESULT_OK)
+            .setNegativeButton("ביטול") { _, _ ->
+                Toast.makeText(this, "המחיקה בוטלה. ההגנה ממשיכה כרגיל.", Toast.LENGTH_LONG).show()
+                // Re-enable suppression we lifted in the dialog setup
+                try {
+                    com.kiddolock.app.utils.Prefs(this).emergency_bypass_until = 0L
+                    AppBlockManager.setGlobalSuppression(this, false)
+                    com.kiddolock.app.utils.Prefs(this).disable_all_filters = false
+                } catch (_: Throwable) {}
+                setResult(RESULT_CANCELED)
                 finish()
             }
             .setCancelable(false)

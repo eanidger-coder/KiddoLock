@@ -192,6 +192,61 @@
             </FrameLayout>
         </FrameLayout>
 
+        <!-- ══════ BONUS TIME - הוסף זמן לילד ══════ -->
+        <LinearLayout
+            android:id="@+id/bonusTimeRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp"
+            android:weightSum="3">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBonus10"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="56dp"
+                android:text="+10 דקות"
+                android:textSize="13sp"
+                android:textColor="@color/cyan_accent"
+                app:strokeColor="@color/cyan_accent"
+                android:layout_marginEnd="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBonus20"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="56dp"
+                android:text="+20 דקות"
+                android:textSize="13sp"
+                android:textColor="@color/cyan_accent"
+                app:strokeColor="@color/cyan_accent"
+                android:layout_marginHorizontal="3dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBonus30"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="56dp"
+                android:text="+30 דקות"
+                android:textSize="13sp"
+                android:textColor="@color/cyan_accent"
+                app:strokeColor="@color/cyan_accent"
+                android:layout_marginStart="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:cornerRadius="12dp" />
+        </LinearLayout>
+
         <!-- ══════ STATS ROW (hidden when kid mode active to declutter) ══════ -->
         <LinearLayout
             android:id="@+id/statsRow"
