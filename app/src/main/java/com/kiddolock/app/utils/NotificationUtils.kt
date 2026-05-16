@@ -88,31 +88,49 @@ object NotificationUtils {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // ⏰ Dynamic content: show remaining time or bedtime info
+        // ⏰ Dynamic content: priority order - bonus > bedtime active > limit reached > limit remaining > snooze
         var dynamicTitle = title
         var dynamicContent = content
         try {
             val scheduler = com.kiddolock.app.services.TimeScheduler(context)
             val config = scheduler.getConfig()
-            if (active && config.dailyTimeLimitEnabled) {
+
+            // PRIORITY 1: Bonus time active (overrides everything)
+            if (active && scheduler.isBonusTimeActive()) {
+                val bonusSec = scheduler.getBonusTimeRemainingSec()
+                val bonusMin = (bonusSec / 60).toInt()
+                dynamicTitle = "🎁 בונוס פעיל - הכל מותר"
+                dynamicContent = "נשארו $bonusMin דקות בונוס"
+            }
+            // PRIORITY 2: Bedtime active right now (and not snoozed)
+            else if (active && config.quietHoursEnabled && scheduler.isBedtimeActive()) {
+                val eh = config.quietHoursEnd
+                val em = config.quietHoursEndMin
+                dynamicTitle = "🌙 שעת שינה פעילה"
+                dynamicContent = "האפליקציות חסומות עד %02d:%02d".format(eh, em)
+            }
+            // PRIORITY 3: Bedtime snoozed by parent
+            else if (active && config.quietHoursEnabled && scheduler.isBedtimeSnoozed()) {
+                dynamicTitle = "🌙 שעת שינה דחויה"
+                dynamicContent = "שעת השינה הושעתה - תחזור מחר אוטומטית"
+            }
+            // PRIORITY 4: Daily limit reached
+            else if (active && config.dailyTimeLimitEnabled && scheduler.isDailyLimitReached()) {
+                dynamicTitle = "⏰ הזמן היומי נגמר"
+                dynamicContent = "הענק בונוס מהאפליקציה כדי להמשיך"
+            }
+            // PRIORITY 5: Normal - show remaining time
+            else if (active && config.dailyTimeLimitEnabled) {
                 val usageMin = scheduler.getTodayUsageMinutes()
                 val remainMin = maxOf(0, config.dailyTimeLimitMinutes - usageMin)
                 val timeStr = when {
-                    remainMin == 0 -> "נגמר הזמן היום"
                     remainMin < 60 -> "$remainMin דק׳"
                     else -> "${remainMin / 60}שע׳ ${remainMin % 60}דק׳"
                 }
                 dynamicContent = "⏰ זמן מסך שנותר: $timeStr"
-            }
-            if (active && config.quietHoursEnabled) {
-                val sh = config.quietHoursStart
-                val sm = config.quietHoursStartMin
-                val eh = config.quietHoursEnd
-                val em = config.quietHoursEndMin
-                if (scheduler.isBedtimeActive()) {
-                    dynamicTitle = "🌙 שעת שינה פעילה"
-                    dynamicContent = "האפליקציות חסומות עד %02d:%02d".format(eh, em)
-                } else {
+                if (config.quietHoursEnabled) {
+                    val sh = config.quietHoursStart
+                    val sm = config.quietHoursStartMin
                     dynamicContent += " • 🌙 שינה ב-%02d:%02d".format(sh, sm)
                 }
             }
@@ -182,15 +200,21 @@ object NotificationUtils {
 
     // Throttle: avoid rapid rebuilds that cause status-bar flicker
     @Volatile private var lastNotifPostMs: Long = 0L
-    @Volatile private var lastNotifActive: Boolean? = null
+    @Volatile private var lastNotifSignature: String = ""
 
     fun updateNotification(context: Context, active: Boolean = isProtectionActive) {
         val now = System.currentTimeMillis()
-        // Only repost if state CHANGED, or if more than 30s passed
-        if (lastNotifActive == active && (now - lastNotifPostMs) < 30_000L) {
+        // Build a signature of all relevant state - if any of these change, the notification text changes
+        val signature = try {
+            val scheduler = com.kiddolock.app.services.TimeScheduler(context)
+            "${active}|${scheduler.isBedtimeActive()}|${scheduler.isBonusTimeActive()}|${scheduler.isBedtimeSnoozed()}|${scheduler.isDailyLimitReached()}|${scheduler.getTodayUsageMinutes()}"
+        } catch (_: Throwable) { active.toString() }
+
+        // Repost if state signature CHANGED, or if more than 60s passed (catches time-based changes)
+        if (lastNotifSignature == signature && (now - lastNotifPostMs) < 60_000L) {
             return
         }
-        lastNotifActive = active
+        lastNotifSignature = signature
         lastNotifPostMs = now
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(KIDDO_NOTIFICATION_ID, buildNotification(context, active))
@@ -200,38 +224,4 @@ object NotificationUtils {
      * עדכון מהיר של ההתראה הראשית עם טקסט מותאם.
      * משמש למשוב חזותי כשמשתמש לוחץ על כפתור חירום בהתראה.
      */
-    fun updateNotificationCustom(context: Context, title: String, content: String) {
-        createNotificationChannel(context)
-        val intent = android.content.Intent(context, com.kiddolock.app.MainActivity::class.java).apply {
-            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        val pendingIntent = android.app.PendingIntent.getActivity(
-            context, 0, intent,
-            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
-        )
-        val n = androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setSmallIcon(com.kiddolock.app.R.drawable.ic_shield)
-            .setColor(0xFFFFA502.toInt())
-            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_SERVICE)
-            .build()
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(KIDDO_NOTIFICATION_ID, n)
-    }
-
-    fun isServiceRunning(context: Context, serviceClass: Class<*>): Boolean {
-        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-        @Suppress("DEPRECATION")
-        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
-            if (serviceClass.name == service.service.className) {
-                return true
-            }
-        }
-        return false
-    }
-}
+    fun updateNotificationCustom(context: Context, title: String, con

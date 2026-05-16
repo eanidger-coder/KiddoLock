@@ -103,9 +103,15 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                         checkAndRecordUsage(pkg)
                         
                         // 2a. FULL LOCK when daily limit reached - even launcher gets blocked
-                        // BUT critical apps (dialer, SMS, WhatsApp, contacts) stay accessible for safety/emergency
+                        // EXCEPTIONS that bypass full lock:
+                        //   - Essential apps (dialer, SMS, WhatsApp)
+                        //   - Apps with active parent-PIN temporary unlock (CRITICAL FIX)
+                        //   - Bonus time granted by parent
                         val scheduler = TimeScheduler(this@KiddoLockAccessibilityService)
-                        if (scheduler.isDailyLimitReached() && !AppBlockManager.isGlobalSuppressed
+                        if (scheduler.isDailyLimitReached()
+                            && !AppBlockManager.isGlobalSuppressed
+                            && !scheduler.isBonusTimeActive()
+                            && !AppBlockManager.isTemporarilyUnlocked(pkg)
                             && pkg != packageName
                             && !com.kiddolock.app.management.AppManager(this@KiddoLockAccessibilityService).ESSENTIAL_APPS_WHITELIST.contains(pkg)) {
                             // Daily limit hit - lockdown screen
@@ -454,13 +460,4 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                 startForeground(
                     NotificationUtils.KIDDO_NOTIFICATION_ID, 
                     notification,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                )
-            } else {
-                startForeground(NotificationUtils.KIDDO_NOTIFICATION_ID, notification)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start foreground", e)
-        }
-    }
-}
+ 

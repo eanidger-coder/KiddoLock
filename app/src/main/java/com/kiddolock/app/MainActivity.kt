@@ -153,6 +153,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<View?>(R.id.btnSnoozeBedtime)?.setOnClickListener { snoozeBedtimeWithConfirm() }
         findViewById<View?>(R.id.btnResetUsage)?.setOnClickListener { resetUsageWithConfirm() }
 
+        // Feedback button - opens dialog for user to write feedback / report bug
+        findViewById<View?>(R.id.btnFeedback)?.setOnClickListener { openFeedbackDialog() }
+
         swKidsModeMain.setOnCheckedChangeListener { buttonView, isChecked ->
             if (!buttonView.isPressed) return@setOnCheckedChangeListener // Only trigger on user interaction
             
@@ -326,6 +329,46 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * Open a dialog for the user to write feedback or report a bug. Includes recent app logs
+     * so the developer can debug without asking the parent to dig through logcat.
+     */
+    private fun openFeedbackDialog() {
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, 0)
+        }
+        val tvInfo = android.widget.TextView(this).apply {
+            text = "ספר לי מה לא עובד / מה היית רוצה לראות בגרסה הבאה.\nהמשוב יישמר בענן + לוגים אחרונים יישלחו אוטומטית לטובת תיקון."
+            textSize = 13f
+        }
+        val etInput = android.widget.EditText(this).apply {
+            hint = "כתוב כאן..."
+            minLines = 4
+            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        }
+        container.addView(tvInfo)
+        container.addView(etInput)
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("📝 שלח פידבק")
+            .setView(container)
+            .setPositiveButton("שלח") { _, _ ->
+                val txt = etInput.text.toString().trim()
+                if (txt.isEmpty()) {
+                    Toast.makeText(this, "ריק - לא נשלח", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                com.kiddolock.app.utils.FeedbackManager.sendFeedback(this, txt) { _, msg ->
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
     private fun snoozeBedtimeWithConfirm() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("🌙 ביטול שעת שינה הלילה")
@@ -384,35 +427,4 @@ class MainActivity : AppCompatActivity() {
                         if (isFinishing || isDestroyed) return@addListener
                         androidx.appcompat.app.AlertDialog.Builder(this)
                             .setTitle("הגנה חשובה - לאשר פעם אחת")
-                            .setMessage("אנדרואיד עלולה לבטל את ההרשאות של KiddoLock אם לא תפעיל את האפליקציה במשך 3 חודשים. כדי שההגנה על הילדים לא תיפסק לבד, אישור חד-פעמי חיוני. לחיצה על 'אשר' תעביר אותך להגדרה ב-Settings - שם הזז את 'הסר הרשאות אם האפליקציה לא בשימוש' לכבוי.")
-                            .setPositiveButton("אשר") { _, _ ->
-                                try {
-                                    val intent = androidx.core.content.IntentCompat.createManageUnusedAppRestrictionsIntent(this, packageName)
-                                    startActivity(intent)
-                                } catch (e: Exception) {
-                                    android.util.Log.w("MainActivity", "Could not open unused-app settings: " + e.message)
-                                }
-                                prefs.edit().putBoolean("unused_app_prompted", true).apply()
-                            }
-                            .setNegativeButton("לא עכשיו") { _, _ ->
-                                prefs.edit().putBoolean("unused_app_prompted", true).apply()
-                            }
-                            .setCancelable(false)
-                            .show()
-                    } else {
-                        // Already disabled or feature not available - record so we don't ask again
-                        prefs.edit().putBoolean("unused_app_prompted", true).apply()
-                    }
-                } catch (e: Throwable) {
-                    android.util.Log.w("MainActivity", "getUnusedAppRestrictionsStatus failed: " + e.message)
-                }
-            }, ContextCompat.getMainExecutor(this))
-        } catch (e: Throwable) {
-            android.util.Log.w("MainActivity", "PackageManagerCompat unavailable: " + e.message)
-        }
-    }
-
-
-    /**
-     * 🚨 פרצת אבטחה תוקנה: כשמשתמש יוצא מהאפליקציה (כפתור בית, multi-tasking, אפליקציה אחרת),
-     * נמחק את ה-session ויידרש PIN שוב בחזרה לאפלי�
+                            .setMessage("אנדרואיד עלולה לבטל את ההרשאות של KiddoLock אם לא תפעיל א
