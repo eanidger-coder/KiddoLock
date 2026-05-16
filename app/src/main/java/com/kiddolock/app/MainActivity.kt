@@ -149,6 +149,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<View?>(R.id.btnBonus20)?.setOnClickListener { grantBonusMinutes(20) }
         findViewById<View?>(R.id.btnBonus30)?.setOnClickListener { grantBonusMinutes(30) }
 
+        // Quick reset buttons
+        findViewById<View?>(R.id.btnSnoozeBedtime)?.setOnClickListener { snoozeBedtimeWithConfirm() }
+        findViewById<View?>(R.id.btnResetUsage)?.setOnClickListener { resetUsageWithConfirm() }
+
         swKidsModeMain.setOnCheckedChangeListener { buttonView, isChecked ->
             if (!buttonView.isPressed) return@setOnCheckedChangeListener // Only trigger on user interaction
             
@@ -322,6 +326,36 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun snoozeBedtimeWithConfirm() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🌙 ביטול שעת שינה הלילה")
+            .setMessage("שעת השינה תושעה לכל הלילה (12 שעות).\nהילד יוכל להשתמש באפליקציות עד שתחזור שעת שינה מחר.\n\nהאם להמשיך?")
+            .setPositiveButton("כן, בטל הלילה") { _, _ ->
+                try {
+                    com.kiddolock.app.services.TimeScheduler(this).snoozeBedtimeTonight()
+                    Toast.makeText(this, "✅ שעת שינה בוטלה ל-12 שעות", Toast.LENGTH_LONG).show()
+                    updateStatus()
+                } catch (e: Throwable) { Toast.makeText(this, "שגיאה: ${e.message}", Toast.LENGTH_LONG).show() }
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
+    private fun resetUsageWithConfirm() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("⏰ איפוס שימוש היום")
+            .setMessage("מונה הזמן יחזור לאפס. הילד יוכל להשתמש שוב את כל המגבלה היומית.\n\nהאם להמשיך?")
+            .setPositiveButton("כן, אפס") { _, _ ->
+                try {
+                    com.kiddolock.app.services.TimeScheduler(this).resetTodayUsage()
+                    Toast.makeText(this, "✅ מונה הזמן אופס - יש למלא 100%", Toast.LENGTH_LONG).show()
+                    updateStatus()
+                } catch (e: Throwable) { Toast.makeText(this, "שגיאה: ${e.message}", Toast.LENGTH_LONG).show() }
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
     private fun isAccessibilityServiceEnabled(): Boolean {
         val expectedComponentName = ComponentName(this, KiddoLockAccessibilityService::class.java)
         val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
@@ -381,52 +415,4 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 🚨 פרצת אבטחה תוקנה: כשמשתמש יוצא מהאפליקציה (כפתור בית, multi-tasking, אפליקציה אחרת),
-     * נמחק את ה-session ויידרש PIN שוב בחזרה לאפליקציה.
-     */
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        AdminPinManager.clearSession()
-    }
-
-    // ⏱️ Live ticker: updates the timer every second while MainActivity is visible
-    private val timeUpdateHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val timeUpdateRunnable = object : Runnable {
-        override fun run() {
-            // CRITICAL (fix CRIT-2 black screen): never touch UI if activity is finishing/destroyed.
-            // The previous code allowed updateStatus to run on a dying activity, which led to
-            // stale view references that the renderer painted as black after ~10 min of background.
-            if (isFinishing || isDestroyed) {
-                timeUpdateHandler.removeCallbacks(this)
-                return
-            }
-            try { updateStatus() } catch (e: Exception) {
-                android.util.Log.w("MainActivity", "Ticker updateStatus failed: ${e.message}")
-            }
-            timeUpdateHandler.postDelayed(this, 10000)
-        }
-    }
-    private fun startTickerIfNeeded() {
-        timeUpdateHandler.removeCallbacks(timeUpdateRunnable)
-        // Update every 10 seconds (timer only changes per minute, but 10s gives smooth experience)
-        timeUpdateHandler.postDelayed(timeUpdateRunnable, 10000)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        timeUpdateHandler.removeCallbacks(timeUpdateRunnable)
-    }
-
-    override fun onDestroy() {
-        // CRITICAL (fix CRIT-2): ensure all background work is cleaned up so the activity
-        // can be re-created cleanly without leaving zombie handlers behind.
-        timeUpdateHandler.removeCallbacksAndMessages(null)
-        super.onDestroy()
-    }
-    private fun wireHelpIcons() {
-        val helpKids = findViewById<android.view.View?>(R.id.btnHelpKidsMode)
-        if (helpKids != null) {
-            HelpTooltips.attach(helpKids, HelpTooltips.HelpTopic.PROTECTION_STATUS)
-        }
-    }
-
-}
+     * נמחק את ה-session ויידרש PIN שוב בחזרה לאפלי�

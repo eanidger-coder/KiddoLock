@@ -116,10 +116,43 @@ class TimeScheduler(private val context: Context) {
     }
 
     /**
+     * Reset today's usage counter to zero. Useful when parent wants to "give back" all time
+     * accumulated today without dealing with limits.
+     */
+    fun resetTodayUsage() {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        // Use SAME key format that recordUsageMinute uses
+        val key = "usage_${getTodayKey()}"
+        prefs.edit().putInt(key, 0).apply()
+        Log.i(TAG, "Today's usage reset to 0 by parent (key=$key)")
+        try { com.kiddolock.app.management.AppBlockManager.invalidateCache() } catch (_: Throwable) {}
+    }
+
+    /**
+     * Snooze bedtime for tonight - skip the bedtime restriction once. Sets a flag that
+     * isBedtimeActive() will honor until the next bedtime window starts.
+     */
+    fun snoozeBedtimeTonight() {
+        val now = System.currentTimeMillis()
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putLong("snooze_bedtime_until", now + (12L * 60 * 60 * 1000))  // 12 hours - covers a full night
+            .apply()
+        Log.i(TAG, "Bedtime snoozed for next 12 hours by parent")
+        try { com.kiddolock.app.management.AppBlockManager.invalidateCache() } catch (_: Throwable) {}
+    }
+
+    fun isBedtimeSnoozed(): Boolean {
+        val until = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong("snooze_bedtime_until", 0L)
+        return System.currentTimeMillis() < until
+    }
+
+    /**
      * Check if bedtime (quiet hours) is currently active.
      */
     fun isBedtimeActive(): Boolean {
         val config = getConfig()
+        if (isBedtimeSnoozed()) return false  // parent dismissed bedtime tonight
         val now = Calendar.getInstance()
         return config.quietHoursEnabled && isTimeInRange(now, config.quietHoursStart, config.quietHoursStartMin, config.quietHoursEnd, config.quietHoursEndMin)
     }
@@ -226,53 +259,4 @@ class TimeScheduler(private val context: Context) {
             quietHoursEnd = endHour
         )
         saveConfig(config)
-        Log.i(TAG, "Quiet hours enabled: $startHour:00 -> $endHour:00")
-    }
-
-    fun disableQuietHours() {
-        val config = getConfig().copy(quietHoursEnabled = false)
-        saveConfig(config)
-    }
-
-    fun setDailyTimeLimit(minutes: Int) {
-        val config = getConfig().copy(
-            dailyTimeLimitEnabled = true,
-            dailyTimeLimitMinutes = minutes
-        )
-        saveConfig(config)
-        Log.i(TAG, "Daily time limit set: $minutes minutes")
-    }
-
-    fun disableDailyTimeLimit() {
-        val config = getConfig().copy(dailyTimeLimitEnabled = false)
-        saveConfig(config)
-    }
-
-    fun setInstantLock(locked: Boolean) {
-        val config = getConfig().copy(isInstantLocked = locked)
-        saveConfig(config)
-        Log.w(TAG, "Instant Lock ${if (locked) "ENABLED" else "DISABLED"}")
-    }
-
-    // --- UI Helpers ---
-
-    fun getBedtimeRangeString(): String? {
-        val config = getConfig()
-        if (!config.quietHoursEnabled) return null
-        return String.format("%02d:%02d - %02d:%02d", 
-            config.quietHoursStart, config.quietHoursStartMin,
-            config.quietHoursEnd, config.quietHoursEndMin)
-    }
-
-    fun getDailyLimitString(): String? {
-        val config = getConfig()
-        if (!config.dailyTimeLimitEnabled) return null
-        val hours = config.dailyTimeLimitMinutes / 60
-        val mins = config.dailyTimeLimitMinutes % 60
-        return when {
-            hours > 0 && mins > 0 -> "$hours שעות ו-$mins דקות"
-            hours > 0 -> "$hours שעות"
-            else -> "$mins דקות"
-        }
-    }
-}
+        Log.i(TAG, "Quiet hours enabled: $startHour:00 -> $endHour:00

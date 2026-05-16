@@ -192,6 +192,45 @@
             </FrameLayout>
         </FrameLayout>
 
+        <!-- ══════ QUICK RESET ROW - דחה שעת שינה / אפס מונה ══════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp"
+            android:weightSum="2">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSnoozeBedtime"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="52dp"
+                android:text="🌙 בטל שעת שינה הלילה"
+                android:textSize="12sp"
+                app:backgroundTint="#9B6EFF"
+                android:textColor="@color/white"
+                android:layout_marginEnd="4dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnResetUsage"
+                style="@style/Widget.MaterialComponents.Button"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="52dp"
+                android:text="⏰ אפס שימוש היום"
+                android:textSize="12sp"
+                app:backgroundTint="#FFD600"
+                android:textColor="#000000"
+                android:layout_marginStart="4dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:cornerRadius="12dp" />
+        </LinearLayout>
+
         <!-- ══════ BONUS TIME - הוסף זמן לילד ══════ -->
         <LinearLayout
             android:id="@+id/bonusTimeRow"
@@ -434,48 +473,4 @@
                 android:background="@drawable/glass_card_bg" />
 
             <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:layout_marginStart="14dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/admin_pin_title"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvPinStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/pin_set"
-                    android:textColor="@color/success_green"
-                    android:textSize="12sp" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="◂"
-                android:textColor="@color/text_tertiary"
-                android:textSize="18sp" />
-        </LinearLayout>
-
-        <!-- ══════ VERSION ══════ -->
-        <TextView
-            android:id="@+id/tvVersion"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="16dp"
-            android:text="KiddoLock v1.0.0"
-            android:textColor="@color/text_tertiary"
-            android:textSize="11sp" />
-
-    </LinearLayout>
-</ScrollView>
+                android:layout_
