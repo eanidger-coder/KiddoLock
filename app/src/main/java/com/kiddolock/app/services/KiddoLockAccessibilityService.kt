@@ -95,12 +95,17 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                                 // 2. CHECK: If we are on a safe screen (Home/System/Allowed), hide any stale overlay
                                 val timeSinceBlock = System.currentTimeMillis() - lastBlockTime
                                 
+                                // SAFETY (v1.5.56): wait at least 5s after a block before periodic-check hides
+                                // the overlay. This guarantees the user actually sees the block screen for a
+                                // meaningful duration — overlay flashing for <500ms (driving incident) is the bug.
                                 if ((appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) && timeSinceBlock > 5000) {
                                     Log.v(TAG, "Periodic check: Actual window is $realPkg (Safe). Hiding stale overlay (Time since block: $timeSinceBlock ms)")
                                     val intent = Intent(this@KiddoLockAccessibilityService, OverlayService::class.java).apply {
                                         action = "HIDE_OVERLAY"
                                     }
                                     startService(intent)
+                                } else if (timeSinceBlock <= 5000) {
+                                    Log.v(TAG, "Periodic check: NOT hiding overlay yet — only ${timeSinceBlock}ms since block, min 5000ms")
                                 } else {
                                     Log.v(TAG, "Periodic check: $realPkg is active. Persistence guard active or not a safe screen. Keeping overlay.")
                                 }
@@ -429,19 +434,32 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             action = "SHOW_OVERLAY"
             putExtra("package_name", packageName)
         }
-        var overlayStarted = false
+        var serviceStarted = false
         try {
             startService(intent)
-            overlayStarted = true
+            serviceStarted = true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start OverlayService - NOT falling back to HOME (safety)", e)
         }
 
-        if (overlayStarted) {
+        // SAFETY (v1.5.56): wait 250ms then VERIFY the overlay actually rendered on screen
+        // before pressing HOME. The old logic trusted startService — but startService can
+        // succeed even when WindowManager.addView later fails (memory pressure, missing
+        // SYSTEM_ALERT_WINDOW perm). If addView fails, OverlayService keeps the static flag
+        // isOverlayCurrentlyShown=false. We check it here.
+        if (serviceStarted) {
             handler.postDelayed({
-                lastNavigationTime = System.currentTimeMillis() // Start guard
-                try { performGlobalAction(GLOBAL_ACTION_HOME) } catch (_: Throwable) {}
-            }, 120L)
+                if (OverlayService.isOverlayCurrentlyShown) {
+                    Log.i(TAG, "Overlay verified visible — performing HOME")
+                    lastNavigationTime = System.currentTimeMillis()
+                    try { performGlobalAction(GLOBAL_ACTION_HOME) } catch (_: Throwable) {}
+                } else {
+                    // SAFETY: overlay never rendered. Do NOT press HOME — let the app stay,
+                    // user is not trapped in silent app-closing loop. OverlayService already
+                    // showed a fallback Toast naming the blocked app.
+                    Log.w(TAG, "Overlay did NOT render for $packageName — skipping HOME (safety)")
+                }
+            }, 250L)  // 250ms gives OverlayService time to call addView synchronously on main thread
         }
 
         // SAFETY FIX (v1.5.54): Removed killBackgroundProcesses entirely.
@@ -509,46 +527,4 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                     } catch (_: Throwable) {}
-                }
-            }
-        } catch (e: Throwable) {
-            Log.e(TAG, "Circuit breaker emergency suspend failed", e)
-        }
-    }
-
-    override fun onInterrupt() {}
-
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        Log.i(TAG, "Service connected. Configuring...")
-
-        serviceInfo = serviceInfo?.apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-                         AccessibilityEvent.TYPE_WINDOWS_CHANGED
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 100
-            flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-                handler.postDelayed(notificationRefreshRunnable, 5000)
-    } ?: serviceInfo
-
-        // Start periodic check
-        handler.postDelayed(periodicCheckRunnable, 12000)
-
-        // Start foreground
-        try {
-            val notification = NotificationUtils.buildNotification(this, true)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                startForeground(
-                    NotificationUtils.KIDDO_NOTIFICATION_ID, 
-                    notification,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                )
-            } else {
-                startForeground(NotificationUtils.KIDDO_NOTIFICATION_ID, notification)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start foreground", e)
-        }
-    }
-}
+              

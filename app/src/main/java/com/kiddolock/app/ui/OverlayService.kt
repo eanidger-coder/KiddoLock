@@ -25,6 +25,17 @@ class OverlayService : Service() {
     // Driving emergency: the user must always be able to reach navigation/emergency apps.
     companion object {
         private const val MAX_OVERLAY_LIFETIME_MS = 60_000L  // 60 seconds, then auto-hide
+
+        // SAFETY (v1.5.56 - post-driving incident, 2026-05-19):
+        // Set to true only AFTER WindowManager.addView succeeds. AccessibilityService MUST
+        // check this flag before performing GLOBAL_ACTION_HOME — otherwise apps will close
+        // silently if addView fails (memory pressure, WindowManager exception, missing perm).
+        @Volatile var isOverlayCurrentlyShown: Boolean = false
+            private set
+
+        // Minimum time the overlay must remain visible before periodic-check can hide it.
+        // 2 seconds is enough for a user to register what happened.
+        const val MIN_OVERLAY_DISPLAY_MS = 2_500L
     }
     private val safetyHandler = Handler(Looper.getMainLooper())
     private val autoHideRunnable = Runnable {
@@ -201,10 +212,27 @@ class OverlayService : Service() {
                 return
             }
             windowManager?.addView(overlayView, params)
+            // SAFETY: only set the flag AFTER addView returns without exception
+            isOverlayCurrentlyShown = true
             Log.i("OverlayService", "Successfully added overlay view for $currentPackage. Reason: ${getBlockingReason()}")
         } catch (e: Exception) {
             Log.e("OverlayService", "CRITICAL ERROR adding overlay view", e)
             overlayView = null
+            isOverlayCurrentlyShown = false
+            // SAFETY: addView failed — show a fallback Toast so the user at least sees SOMETHING.
+            // Without this, the user sees apps closing silently with no explanation (driving-incident).
+            try {
+                val pkgLabel = try {
+                    val pm = packageManager
+                    val info = pm.getApplicationInfo(currentPackage ?: "", 0)
+                    pm.getApplicationLabel(info).toString()
+                } catch (_: Throwable) { currentPackage ?: "האפליקציה" }
+                android.widget.Toast.makeText(
+                    this,
+                    "🔒 KiddoLock חסם את \"$pkgLabel\" (overlay נכשל)",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            } catch (_: Throwable) {}
         }
     }
 
@@ -495,43 +523,3 @@ class OverlayService : Service() {
         if (warningView != null) return
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP
-            y = 50 // Offset from top
-        }
-
-        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
-        warningView = inflater.inflate(R.layout.overlay_warning, null)
-        
-        warningView?.findViewById<View>(R.id.btnDismissWarning)?.setOnClickListener {
-            hideWarning()
-        }
-
-        // Set remaining time text
-        val remaining = com.kiddolock.app.services.TimeScheduler(this).getRemainingMinutes()
-        warningView?.findViewById<TextView>(R.id.tvRemainingTime)?.text = "נשארו כ-$remaining דקות לסיום."
-
-        try {
-            windowManager?.addView(warningView, params)
-            // Slide in animation
-            warningView?.translationY = -200f
-            warningView?.animate()?.translationY(0f)?.setDuration(500)?.start()
-        } catch (e: Exception) {
-            Log.e("OverlayService", "Error adding warning view", e)
-            warningView = null
-        }
-    }
-
-    private fun hideWarning() {
-        warningView?.let {
-  
