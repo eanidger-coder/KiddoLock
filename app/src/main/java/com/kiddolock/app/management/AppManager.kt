@@ -614,7 +614,14 @@ class AppManager(private val context: Context) {
             val mandatoryBlocks = setOf(
                 // Messengers - high-risk for kids talking to strangers
                 "org.telegram.messenger",
+                "org.telegram.messenger.web",   // Telegram Web/X variant (multi-account)
+                "org.telegram.messenger.beta",  // Telegram Beta
                 "org.telegram.plus",
+                "ru.telegram.alpha",            // Plus messenger alt
+                "uz.unnarsx.cherrygram",        // CherryGram (Telegram mod)
+                "org.thunderdog.challegram",    // Telegram X (alternative client)
+                "ir.ilmili.telegraph",          // Telegraph (Telegram mod)
+                "org.telegrampro.messenger",    // Telegram Pro
                 "org.thoughtcrime.securesms",  // Signal
                 "com.discord",
                 "com.viber.voip",
@@ -652,6 +659,29 @@ class AppManager(private val context: Context) {
             saveBlacklist()
             prefs.edit().putInt("blacklist_version", 16).apply()
             Log.i(TAG, "Migration V16: Force re-added ${added} critical messaging/social apps (Telegram et al.)")
+        }
+
+        // Migration: V17 - Telegram variants discovered in field (e.g. org.telegram.messenger.web
+        // installed via APK / 3rd-party stores). These were missed by V16 because the user already
+        // had blacklist_version >= 16. Force-add them and any other newly-discovered messaging variants.
+        if (blacklistVersion < 17) {
+            val newVariants = setOf(
+                "org.telegram.messenger.web",     // Telegram Web/X (multi-account, user reported)
+                "org.telegram.messenger.beta",    // Telegram Beta
+                "ru.telegram.alpha",              // Plus alt
+                "uz.unnarsx.cherrygram",          // CherryGram mod
+                "org.thunderdog.challegram",      // Telegram X
+                "ir.ilmili.telegraph",            // Telegraph mod
+                "org.telegrampro.messenger",      // Telegram Pro
+                "com.nicegram.app",               // Nicegram (Telegram client with extra features)
+                "com.iMe.android"                 // iMe Messenger (Telegram-based)
+            )
+            val before = blacklistedApps.size
+            blacklistedApps.addAll(newVariants)
+            val added = blacklistedApps.size - before
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 17).apply()
+            Log.i(TAG, "Migration V17: Added ${added} Telegram variants (Web/X/mods)")
         }
 
         Log.i(TAG, "App Manager initialized: ${blacklistedApps.size} apps blacklisted, blocking=${blockingEnabled}")
@@ -745,65 +775,4 @@ class AppManager(private val context: Context) {
         if (CORE_SYSTEM_WHITELIST.contains(packageName)) {
             Log.w(TAG, "Cannot blacklist CORE system app: $packageName")
             return
-        }
-        blacklistedApps.add(packageName)
-        saveBlacklist()
-    }
-
-    /**
-     * Remove an app from the blacklist.
-     */
-    fun whitelistApp(packageName: String) {
-        blacklistedApps.remove(packageName)
-        saveBlacklist()
-    }
-
-    fun isBlockingEnabled(): Boolean = true
-
-    /**
-     * Get all installed apps with their blacklist status.
-     */
-    fun getInstalledApps(): List<AppInfo> {
-        val pm = context.packageManager
-        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-
-        return apps.filter { app ->
-            // Only show apps with a launcher icon (user-facing apps)
-            pm.getLaunchIntentForPackage(app.packageName) != null
-        }.map { app ->
-            AppInfo(
-                packageName = app.packageName,
-                appName = pm.getApplicationLabel(app).toString(),
-                isBlacklisted = blacklistedApps.contains(app.packageName),
-                isSystemProtected = isSystemProtected(app.packageName)
-            )
-        }.sortedWith(compareByDescending<AppInfo> { it.isBlacklisted }.thenBy { it.appName })
-    }
-
-    /**
-     * Get the count of blacklisted apps.
-     */
-    fun getBlacklistedCount(): Int = blacklistedApps.size
-
-    /**
-     * Reset blacklist to defaults.
-     */
-    fun resetToDefaults() {
-        blacklistedApps.clear()
-        blacklistedApps.addAll(DEFAULT_BLACKLIST)
-        saveBlacklist()
-    }
-
-    private fun saveBlacklist() {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putStringSet(KEY_BLACKLISTED_APPS, HashSet(blacklistedApps)) // Defensive copy
-            .apply()
-
-        // Invalidate the accessibility service cache so changes take effect immediately
-        AppBlockManager.invalidateCache()
-
-        // Push settings to cloud whenever blacklist is updated
-        SettingsSyncManager(context).pushSettings()
-    }
-}
+ 
