@@ -394,16 +394,11 @@ class OverlayService : Service() {
                     val durationMs = selectedDurationMinutes * 60000L
                     AppBlockManager.temporaryUnlock(this, pkg, durationMs)
 
-                    // 🔓 תיקון באג: אם המשתמש פתח את ההגדרות (חבילת Settings), צריך לבטל גם את BypassGuard
-                    // אחרת BypassGuard.checkNavigation עדיין חוסם את ההגדרות למרות שה-PIN נכון.
-                    val isSettings = pkg.contains("settings", ignoreCase = true) ||
-                        pkg.contains("securitycenter", ignoreCase = true) ||
-                        pkg.contains("setupwizard", ignoreCase = true)
-                    if (isSettings) {
-                        com.kiddolock.app.utils.Prefs(this).emergency_bypass_until =
-                            System.currentTimeMillis() + durationMs
-                        Log.i("OverlayService", "Settings unlocked: BypassGuard suspended for ${selectedDurationMinutes}min")
-                    }
+                    // CRITICAL FIX (v1.5.53): we used to set emergency_bypass_until here for Settings
+                    // packages, but that flag is GLOBAL — it disabled BypassGuard for every app, not just
+                    // Settings. Users who unlocked Settings ended up with the entire device unrestricted.
+                    // The correct fix is in BypassGuard.checkNavigation: it now respects per-package
+                    // temporaryUnlock state, so Settings unlocks here remain scoped to Settings only.
 
                     Toast.makeText(this, "גישה אושרה ל-$selectedDurationMinutes דקות", Toast.LENGTH_SHORT).show()
                     hide()

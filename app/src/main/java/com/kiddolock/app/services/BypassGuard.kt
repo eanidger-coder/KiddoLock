@@ -87,7 +87,15 @@ class BypassGuard(private val context: Context) {
             return BypassAction.ALLOW
         }
 
-        // 0. Check for Emergency Bypass
+        // 0. Per-package temporary unlock (PIN-approved single-app access for 5 minutes).
+        // CRITICAL: must come BEFORE the emergency_bypass check so a Settings PIN unlock
+        // does NOT cascade into a global free-pass.
+        if (com.kiddolock.app.management.AppBlockManager.isTemporarilyUnlocked(packageName)) {
+            Log.i(TAG, "Temporary per-app unlock active for $packageName - allowing")
+            return BypassAction.ALLOW
+        }
+
+        // 0a. Check for Emergency Bypass (10-min global pause, explicit parent action only)
         if (System.currentTimeMillis() < prefs.emergency_bypass_until) {
             Log.i(TAG, "Emergency bypass active - allowing all")
             return BypassAction.ALLOW
