@@ -151,6 +151,7 @@
                 <action android:name="com.kiddolock.app.EMERGENCY_UNLOCK" />
                 <action android:name="com.kiddolock.app.EMERGENCY_DISABLE" />
                 <action android:name="com.kiddolock.app.EMERGENCY_UNINSTALL" />
+                <action android:name="com.kiddolock.app.ENABLE_KIDS_MODE" />
                 <action android:name="com.kiddolock.app.TEST_TRIGGER_BEDTIME" />
                 <action android:name="com.kiddolock.app.TEST_SET_INSTANT_LOCK" />
                 <action android:name="com.kiddolock.app.TEST_DUMP_STATE" />

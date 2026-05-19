@@ -22,6 +22,7 @@ object NotificationUtils {
     const val ACTION_EMERGENCY_UNINSTALL = "com.kiddolock.app.EMERGENCY_UNINSTALL"
     const val ACTION_EMERGENCY_UNLOCK = "com.kiddolock.app.EMERGENCY_UNLOCK"
     const val ACTION_PAUSE_PROTECTION_1H = "com.kiddolock.app.PAUSE_PROTECTION_1H"
+    const val ACTION_ENABLE_KIDS_MODE = "com.kiddolock.app.ENABLE_KIDS_MODE"
 
     private var isProtectionActive = false
 
@@ -69,6 +70,20 @@ object NotificationUtils {
         }
         val pendingIntent = PendingIntent.getActivity(
             context, 0, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // CRITICAL FIX (black-screen bug): when Kids Mode is OFF, the dormant notification
+        // used to open MainActivity directly. MainActivity.onResume chains setup/PIN/auto-revoke
+        // checks that can leave the user on a blank window. Instead, route the tap through a
+        // BroadcastReceiver that turns on Kids Mode without opening any Activity at all.
+        val enableKidsIntent = Intent(context, com.kiddolock.app.receivers.EmergencyReceiver::class.java).apply {
+            action = ACTION_ENABLE_KIDS_MODE
+            // Explicit package - required for receivers on Android 8+
+            setPackage(context.packageName)
+        }
+        val enableKidsPendingIntent = PendingIntent.getBroadcast(
+            context, 5, enableKidsIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -137,12 +152,14 @@ object NotificationUtils {
         } catch (_: Exception) {}
 
         // Build notification - DIFFERENT priority/style based on Kids Mode state
+        // CRITICAL FIX: dormant notification taps now trigger the receiver (no Activity, no black screen)
+        val tapIntent = if (effectiveActive) pendingIntent else enableKidsPendingIntent
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(dynamicTitle)
             .setContentText(dynamicContent)
             .setSmallIcon(R.drawable.ic_shield)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(tapIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -157,9 +174,11 @@ object NotificationUtils {
             builder.addAction(R.drawable.ic_lock_open, "שחרור", unlockPendingIntent)
             builder.addAction(R.drawable.ic_status_pending, "מחק לגמרי", uninstallPendingIntent)
         } else {
-            // DORMANT: Gray, minimal priority, no emergency buttons (nothing to bypass)
+            // DORMANT: Gray, minimal priority, action button to enable protection in one tap.
+            // No Activity opens, no chance of a black screen.
             builder.setColor(0xFF6B6780.toInt())  // Gray
             builder.setPriority(NotificationCompat.PRIORITY_MIN)
+            builder.addAction(R.drawable.ic_shield, "🛡️ הפעל הגנה", enableKidsPendingIntent)
         }
         return builder.build()
     }
@@ -224,4 +243,38 @@ object NotificationUtils {
      * עדכון מהיר של ההתראה הראשית עם טקסט מותאם.
      * משמש למשוב חזותי כשמשתמש לוחץ על כפתור חירום בהתראה.
      */
-    fun updateNotificationCustom(context: Context, title: String, con
+    fun updateNotificationCustom(context: Context, title: String, content: String) {
+        createNotificationChannel(context)
+        val intent = android.content.Intent(context, com.kiddolock.app.MainActivity::class.java).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            context, 0, intent,
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val n = androidx.core.app.NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setSmallIcon(com.kiddolock.app.R.drawable.ic_shield)
+            .setColor(0xFFFFA502.toInt())
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setCategory(androidx.core.app.NotificationCompat.CATEGORY_SERVICE)
+            .build()
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(KIDDO_NOTIFICATION_ID, n)
+    }
+
+    fun isServiceRunning(context: Context, serviceClass: Class<*>): Boolean {
+        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        @Suppress("DEPRECATION")
+        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+            if (serviceClass.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+}
