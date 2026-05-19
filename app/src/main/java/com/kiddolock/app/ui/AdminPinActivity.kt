@@ -341,6 +341,21 @@ class AdminPinActivity : AppCompatActivity() {
     }
 
     /**
+     * Safely return to MainActivity instead of leaving a null window (black screen).
+     */
+    private fun returnToMainActivity() {
+        try {
+            val intent = Intent(this, com.kiddolock.app.MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            startActivity(intent)
+        } catch (e: Throwable) {
+            Log.w("AdminPinActivity", "Could not return to MainActivity: " + e.message)
+        }
+        finish()
+    }
+
+    /**
      * Show a clear, friendly dialog after the parent successfully entered PIN
      * to remove protection. Tells the user: "You can uninstall now" + opens uninstall flow.
      */
@@ -366,7 +381,9 @@ class AdminPinActivity : AppCompatActivity() {
                     Toast.makeText(this, "פתח הגדרות → אפליקציות → KiddoLock → הסר", Toast.LENGTH_LONG).show()
                 }
                 setResult(RESULT_OK)
-                finish()
+                // CRITICAL FIX (black-screen bug): always return to MainActivity so the parent
+                // isn't stuck on a black/null screen if Android's uninstall dialog is cancelled.
+                returnToMainActivity()
             }
             .setNegativeButton("ביטול") { _, _ ->
                 Toast.makeText(this, "המחיקה בוטלה. ההגנה ממשיכה כרגיל.", Toast.LENGTH_LONG).show()
@@ -377,7 +394,8 @@ class AdminPinActivity : AppCompatActivity() {
                     com.kiddolock.app.utils.Prefs(this).disable_all_filters = false
                 } catch (_: Throwable) {}
                 setResult(RESULT_CANCELED)
-                finish()
+                // CRITICAL FIX (black-screen bug): re-open MainActivity instead of leaving null focus
+                returnToMainActivity()
             }
             .setCancelable(false)
             .show()
