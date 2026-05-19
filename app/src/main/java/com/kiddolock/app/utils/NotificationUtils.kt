@@ -59,11 +59,18 @@ object NotificationUtils {
         val suppressed = try { com.kiddolock.app.management.AppBlockManager.isGlobalSuppressed } catch (_: Throwable) { false }
         val effectiveActive = kidsModeOn && !suppressed
 
+        // 3 states: ACTIVE / PAUSED (Kids Mode on but suppressed) / DORMANT (Kids Mode off)
+        val isPaused = kidsModeOn && suppressed
         val title = when {
-            !effectiveActive -> "KiddoLock במצב חופשי"
-            else -> "KiddoLock: הגנה פעילה"
+            isPaused -> "⏸ KiddoLock בהפסקה זמנית"
+            effectiveActive -> "KiddoLock: הגנה פעילה"
+            else -> "KiddoLock במצב חופשי"
         }
-        val content = if (effectiveActive) "המכשיר מוגן ומנוטר בזמן אמת" else "לחץ להפעלת ההגנה"
+        val content = when {
+            isPaused -> "ההגנה מושעית — לחץ 'הפעל הגנה עכשיו' לחזרה מיידית"
+            effectiveActive -> "המכשיר מוגן ומנוטר בזמן אמת"
+            else -> "לחץ להפעלת ההגנה"
+        }
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -151,8 +158,8 @@ object NotificationUtils {
             }
         } catch (_: Exception) {}
 
-        // Build notification - DIFFERENT priority/style based on Kids Mode state
-        // CRITICAL FIX: dormant notification taps now trigger the receiver (no Activity, no black screen)
+        // Build notification - 3-state styling
+        // CRITICAL FIX: dormant + paused notification taps now trigger the receiver (no Activity, no black screen)
         val tapIntent = if (effectiveActive) pendingIntent else enableKidsPendingIntent
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(dynamicTitle)
@@ -167,18 +174,28 @@ object NotificationUtils {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setAutoCancel(false)
 
-        if (effectiveActive) {
-            // ACTIVE: Green color, emergency actions available
-            builder.setColor(0xFF4CAF50.toInt())  // Green
-            builder.setPriority(NotificationCompat.PRIORITY_LOW)
-            builder.addAction(R.drawable.ic_lock_open, "שחרור", unlockPendingIntent)
-            builder.addAction(R.drawable.ic_status_pending, "מחק לגמרי", uninstallPendingIntent)
-        } else {
-            // DORMANT: Gray, minimal priority, action button to enable protection in one tap.
-            // No Activity opens, no chance of a black screen.
-            builder.setColor(0xFF6B6780.toInt())  // Gray
-            builder.setPriority(NotificationCompat.PRIORITY_MIN)
-            builder.addAction(R.drawable.ic_shield, "🛡️ הפעל הגנה", enableKidsPendingIntent)
+        when {
+            isPaused -> {
+                // PAUSED: Orange/amber, parent gets a one-tap "restore protection now" button.
+                builder.setColor(0xFFFFA502.toInt())  // Amber
+                builder.setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                builder.addAction(R.drawable.ic_shield, "🛡️ הפעל הגנה עכשיו", enableKidsPendingIntent)
+                builder.addAction(R.drawable.ic_status_pending, "🗑️ הסר KiddoLock", uninstallPendingIntent)
+            }
+            effectiveActive -> {
+                // ACTIVE: Green color, emergency actions available
+                builder.setColor(0xFF4CAF50.toInt())  // Green
+                builder.setPriority(NotificationCompat.PRIORITY_LOW)
+                builder.addAction(R.drawable.ic_lock_open, "⏸ הפסקה 10 דק׳", unlockPendingIntent)
+                builder.addAction(R.drawable.ic_status_pending, "🗑️ הסר KiddoLock", uninstallPendingIntent)
+            }
+            else -> {
+                // DORMANT: Gray, minimal priority, action button to enable protection in one tap.
+                // No Activity opens, no chance of a black screen.
+                builder.setColor(0xFF6B6780.toInt())  // Gray
+                builder.setPriority(NotificationCompat.PRIORITY_MIN)
+                builder.addAction(R.drawable.ic_shield, "🛡️ הפעל הגנה", enableKidsPendingIntent)
+            }
         }
         return builder.build()
     }

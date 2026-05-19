@@ -31,19 +31,22 @@ class EmergencyReceiver : BroadcastReceiver() {
             }
             NotificationUtils.ACTION_ENABLE_KIDS_MODE -> {
                 // CRITICAL FIX (black-screen bug): turn on Kids Mode without opening any Activity.
-                // The old behavior was to open MainActivity, but its onResume chains setup/PIN/auto-revoke
-                // checks that occasionally left the parent on a blank window.
+                // Also covers the "restore from 10-min pause" case - clearing global suppression and
+                // any pending bypasses so protection is immediately active when the parent taps the button.
                 Log.i("EmergencyReceiver", "Enabling Kids Mode from notification tap")
                 try {
                     vibrateConfirmation(context)
                     val kidsManager = com.kiddolock.app.management.KidsModeManager(context)
+                    val wasSuppressed = AppBlockManager.isGlobalSuppressed
                     if (!kidsManager.isEnabled) {
                         kidsManager.isEnabled = true
-                        AppBlockManager.clearAllBypasses(context)
                     }
+                    // Always clear any active bypasses / pause, so a tap during the 10-minute pause restores protection.
+                    AppBlockManager.clearAllBypasses(context)
                     // Refresh the notification immediately so the parent sees the green "active" state
                     NotificationUtils.updateNotification(context, true)
-                    Toast.makeText(context, "🛡️ ההגנה הופעלה", Toast.LENGTH_SHORT).show()
+                    val msg = if (wasSuppressed) "🛡️ ההגנה חזרה לפעולה" else "🛡️ ההגנה הופעלה"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 } catch (e: Throwable) {
                     Log.e("EmergencyReceiver", "Failed to enable Kids Mode from notification", e)
                     Toast.makeText(context, "שגיאה בהפעלת ההגנה. פתח את KiddoLock ידנית.", Toast.LENGTH_LONG).show()

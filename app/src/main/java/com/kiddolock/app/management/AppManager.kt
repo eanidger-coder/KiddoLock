@@ -594,6 +594,7 @@ class AppManager(private val context: Context) {
             Log.i(TAG, "Migration V15: YouTube Kids unblocked (removed=$removed)")
         }
 
+        // Load saved blacklist BEFORE V16 so the migration can re-add missing critical apps
         val savedBlacklist = prefs.getStringSet(KEY_BLACKLISTED_APPS, null)
         blacklistedApps.clear()
         if (savedBlacklist != null) {
@@ -602,6 +603,55 @@ class AppManager(private val context: Context) {
             // First run or post-migration: use defaults
             blacklistedApps.addAll(DEFAULT_BLACKLIST)
             saveBlacklist()
+        }
+
+        // Migration: V16 - FORCE re-add critical messaging / social apps even if the parent
+        // previously removed them. These are apps where children can talk to strangers, receive
+        // inappropriate content, leak personal info, or contact estranged parents without supervision.
+        // Per user request - these must be blocked by default on every install / upgrade.
+        // WhatsApp intentionally excluded - it's the Israeli family standard for parent-child communication.
+        if (blacklistVersion < 16) {
+            val mandatoryBlocks = setOf(
+                // Messengers - high-risk for kids talking to strangers
+                "org.telegram.messenger",
+                "org.telegram.plus",
+                "org.thoughtcrime.securesms",  // Signal
+                "com.discord",
+                "com.viber.voip",
+                "com.imo.android.imoim",
+                "com.imo.android.imoimbeta",
+                "com.skype.raider",
+                "com.tencent.mobileqq",
+                "jp.naver.line.android",  // LINE
+                "kakao.talk",
+                "com.google.android.apps.tachyon",  // Google Meet/Duo
+                "com.kik.android",
+                "sh.whisper",
+                "co.hellomonkey",
+                "com.omegle.app",
+                // Social - direct messages with strangers
+                "com.snapchat.android",
+                "com.instagram.android",
+                "com.instagram.barcelona",  // Threads
+                "com.zhiliaoapp.musically",  // TikTok
+                "com.facebook.orca",  // Messenger
+                "com.facebook.mlite",
+                "com.twitter.android",
+                "com.reddit.frontpage",
+                "com.linkedin.android",
+                // Dating - never appropriate for kids
+                "com.tinder",
+                "com.bumble.app",
+                "com.hinge.app",
+                "com.grindr.android",
+                "com.badoo.mobile"
+            )
+            val before = blacklistedApps.size
+            blacklistedApps.addAll(mandatoryBlocks)
+            val added = blacklistedApps.size - before
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 16).apply()
+            Log.i(TAG, "Migration V16: Force re-added ${added} critical messaging/social apps (Telegram et al.)")
         }
 
         Log.i(TAG, "App Manager initialized: ${blacklistedApps.size} apps blacklisted, blocking=${blockingEnabled}")
