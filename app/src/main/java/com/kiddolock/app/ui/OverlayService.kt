@@ -20,6 +20,18 @@ import android.os.VibratorManager
 
 class OverlayService : Service() {
 
+    // SAFETY (v1.5.54 - post-driving incident): every overlay self-destructs after
+    // MAX_OVERLAY_LIFETIME_MS to prevent a stuck block screen from trapping the user.
+    // Driving emergency: the user must always be able to reach navigation/emergency apps.
+    companion object {
+        private const val MAX_OVERLAY_LIFETIME_MS = 60_000L  // 60 seconds, then auto-hide
+    }
+    private val safetyHandler = Handler(Looper.getMainLooper())
+    private val autoHideRunnable = Runnable {
+        Log.w("OverlayService", "SAFETY: overlay lifetime exceeded ${MAX_OVERLAY_LIFETIME_MS}ms - auto-hiding")
+        try { hide() } catch (e: Throwable) { Log.e("OverlayService", "auto-hide failed", e) }
+    }
+
     private var windowManager: WindowManager? = null
     private var overlayView: View? = null
     private var warningView: View? = null
@@ -86,8 +98,15 @@ class OverlayService : Service() {
         Log.i("OverlayService", "showOverlay() called for package: $currentPackage")
         if (overlayView != null) {
             Log.d("OverlayService", "Overlay already visible, skipping inflate")
+            // SAFETY: even on duplicate show, restart the auto-hide timer
+            safetyHandler.removeCallbacks(autoHideRunnable)
+            safetyHandler.postDelayed(autoHideRunnable, MAX_OVERLAY_LIFETIME_MS)
             return
         }
+        // SAFETY: arm the dead-man auto-hide. If user never dismisses (e.g. system is stuck),
+        // overlay self-destructs after 60s so the user is never trapped behind a frozen screen.
+        safetyHandler.removeCallbacks(autoHideRunnable)
+        safetyHandler.postDelayed(autoHideRunnable, MAX_OVERLAY_LIFETIME_MS)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -515,41 +534,4 @@ class OverlayService : Service() {
 
     private fun hideWarning() {
         warningView?.let {
-            try {
-                // Slide out animation
-                it.animate().translationY(-300f).setDuration(500).withEndAction {
-                    try {
-                        windowManager?.removeView(it)
-                    } catch (e: Exception) {
-                        Log.e("OverlayService", "Error removing warning view in callback", e)
-                    }
-                }.start()
-            } catch (e: Exception) {
-                Log.e("OverlayService", "Error animating warning view out", e)
-                windowManager?.removeView(it)
-            }
-            warningView = null
-        }
-    }
-
-    fun hide() {
-        hideWarning() // Hide warning too if we block
-        overlayView?.let {
-            try {
-                windowManager?.removeView(it)
-                Log.i("OverlayService", "Overlay HIDDEN for $currentPackage")
-            } catch (e: Exception) {
-                Log.e("OverlayService", "Error removing overlay view", e)
-            }
-            overlayView = null
-            currentPackage = null // Clear state immediately
-            pinBuffer = ""
-            isEmergencyAction = false
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        hide()
-    }
-}
+  

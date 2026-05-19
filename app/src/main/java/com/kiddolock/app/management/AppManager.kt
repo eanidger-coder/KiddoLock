@@ -81,8 +81,8 @@ class AppManager(private val context: Context) {
         "com.microsoft.office.onenote",           // OneNote
         "com.google.android.keep",                // Google Keep (notes)
         "com.google.android.apps.tasks",          // Google Tasks
-        "com.google.android.apps.maps",           // Google Maps (location risk)
-        "com.waze",                               // Waze
+        // SAFETY (v1.5.54): Waze and Maps REMOVED from blacklist - they are now in
+        // ESSENTIAL_APPS_WHITELIST (always-allowed). Navigation apps MUST NEVER be blocked.
         "com.android.packageinstaller",
         "com.samsung.android.packageinstaller",
 
@@ -426,7 +426,19 @@ class AppManager(private val context: Context) {
         // WhatsApp - the Israeli family standard
         "com.whatsapp",
         // KiddoLock itself (cannot block ourselves)
-        "com.kiddolock.app"
+        "com.kiddolock.app",
+        // SAFETY (v1.5.54 - post-driving incident, 2026-05-19):
+        // Navigation apps MUST always be accessible. Eitan's driving incident was
+        // directly caused by Waze being default-blacklisted - he lost navigation
+        // mid-drive and almost crashed. A parental-control app NEVER blocks navigation.
+        "com.waze",                              // Waze
+        "com.google.android.apps.maps",          // Google Maps
+        "com.google.android.apps.mapslite",      // Maps Go
+        "com.here.app.maps",                     // HERE WeGo
+        "com.sygic.aura",                        // Sygic
+        "ru.yandex.yandexnavi",                  // Yandex Navigator
+        "com.tomtom.gplay.navapp",               // TomTom
+        "com.mapfactor.navigator"                // MapFactor
     )
 
     // TIER 2 - KID-FRIENDLY apps. Allowed in Kids Mode (not on blacklist), but STILL respect
@@ -684,6 +696,28 @@ class AppManager(private val context: Context) {
             Log.i(TAG, "Migration V17: Added ${added} Telegram variants (Web/X/mods)")
         }
 
+        // Migration: V18 - SAFETY CRITICAL (post-driving incident 2026-05-19)
+        // Remove navigation apps from the saved blacklist. They were previously default-blocked
+        // which caused Eitan to lose Waze mid-drive. Navigation MUST always be accessible.
+        if (blacklistVersion < 18) {
+            val navApps = setOf(
+                "com.waze",
+                "com.google.android.apps.maps",
+                "com.google.android.apps.mapslite",
+                "com.here.app.maps",
+                "com.sygic.aura",
+                "ru.yandex.yandexnavi",
+                "com.tomtom.gplay.navapp",
+                "com.mapfactor.navigator"
+            )
+            val before = blacklistedApps.size
+            navApps.forEach { blacklistedApps.remove(it) }
+            val removed = before - blacklistedApps.size
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 18).apply()
+            Log.w(TAG, "Migration V18: SAFETY - removed ${removed} navigation apps from blacklist (Waze, Maps etc.)")
+        }
+
         Log.i(TAG, "App Manager initialized: ${blacklistedApps.size} apps blacklisted, blocking=${blockingEnabled}")
     }
 
@@ -727,52 +761,4 @@ class AppManager(private val context: Context) {
             val pm = context.packageManager
             val flags = PackageManager.MATCH_DEFAULT_ONLY
             val resolveInfos = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
-            } else {
-                pm.queryIntentActivities(intent, flags)
-            }
-            
-            launcherPackages.clear()
-            resolveInfos.forEach { 
-                val pkg = it.activityInfo.packageName
-                // PRECISION FILTER: A launcher should NOT be a critical blocked app (like Settings)
-                // We check basic patterns here to avoid circular dependencies with AppBlockManager
-                val isCriticalPattern = pkg.contains("settings", ignoreCase = true) || 
-                                      pkg.contains("packageinstaller", ignoreCase = true) ||
-                                      pkg.contains("chrome", ignoreCase = true) ||
-                                      pkg.contains("browser", ignoreCase = true)
-                
-                if (!isCriticalPattern) {
-                    launcherPackages.add(pkg)
-                }
-            }
-            lastLauncherUpdate = System.currentTimeMillis()
-            Log.d(TAG, "Launcher cache updated (filtered): $launcherPackages")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating launcher cache", e)
-        }
-    }
-
-    /**
-     * Check if a package is blacklisted and should be blocked.
-     */
-    fun isBlacklisted(packageName: String): Boolean {
-        if (CORE_SYSTEM_WHITELIST.contains(packageName)) return false
-        return blacklistedApps.contains(packageName)
-    }
-
-    /**
-     * Check if a package is a system-protected app that cannot be toggled.
-     */
-    fun isSystemProtected(packageName: String): Boolean {
-        return CORE_SYSTEM_WHITELIST.contains(packageName)
-    }
-
-    /**
-     * Add an app to the blacklist.
-     */
-    fun blacklistApp(packageName: String) {
-        if (CORE_SYSTEM_WHITELIST.contains(packageName)) {
-            Log.w(TAG, "Cannot blacklist CORE system app: $packageName")
-            return
- 
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of

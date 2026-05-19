@@ -451,20 +451,42 @@ object AppBlockManager {
      * This is PUBLIC so the Accessibility Service can use it for its fast safeguard.
      */
     fun isCriticalApp(packageName: String): Boolean {
+        // SAFETY FIX (v1.5.54 - post-driving incident, 2026-05-19):
+        // Previous version used p.contains("browser") as a broad fallback which could match
+        // any package with "browser" anywhere in its name, including unrelated apps that
+        // happen to bundle a WebView component. Replaced with an exact allowlist.
+        // If a new browser appears, add its exact package name explicitly.
         val p = packageName.lowercase()
-        return p.contains("settings") || 
-               p.contains("packageinstaller") || 
-               p.contains("installer") ||
-               p == "com.android.vending" || // Play Store
-               p.contains("samsungapps") || // Galaxy Store
-               p.contains("samsung.android.sm") || // Smart Manager
-               p.contains("samsung.android.lool") || // Device Care
-               p.contains("chrome") || 
-               p.contains("firefox") ||
-               p.contains("msedge") ||
-               p.contains("opera.browser") ||
-               p.contains("brave.browser") ||
-               p.contains("duckduckgo.mobile") ||
-               p.contains("browser") // Broad fallback for manufacturer browsers
+        val exactCritical = setOf(
+            "com.android.vending",
+            "com.android.settings",
+            "com.samsung.android.settings",
+            "com.android.packageinstaller",
+            "com.samsung.android.packageinstaller",
+            "com.google.android.packageinstaller",
+            "com.sec.android.app.samsungapps",
+            "com.samsung.android.sm",
+            "com.samsung.android.lool",
+            // Browsers - exact package names only
+            "com.android.chrome",
+            "org.mozilla.firefox",
+            "com.microsoft.emmx",
+            "com.opera.browser",
+            "com.opera.mini.native",
+            "com.brave.browser",
+            "com.duckduckgo.mobile.android",
+            "com.sec.android.app.sbrowser",
+            "com.android.browser",
+            "org.torproject.torbrowser",
+            "com.yandex.browser",
+            "com.uc.browser.en",
+            "com.uc.browser.us",
+            "com.kiwibrowser.browser"
+        )
+        if (exactCritical.contains(p)) return true
+        // Narrow prefix/suffix checks - intentionally specific
+        return p.startsWith("com.android.settings.") ||
+               p.startsWith("com.samsung.android.settings.") ||
+               p.endsWith(".packageinstaller")
     }
 }

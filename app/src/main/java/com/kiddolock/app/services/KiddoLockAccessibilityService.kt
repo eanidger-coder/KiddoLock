@@ -26,8 +26,22 @@ class KiddoLockAccessibilityService : AccessibilityService() {
     companion object {
         private const val NAVIGATION_GUARD_MS = 1500L // Increased for better stability
         private const val TAG = "AccessibilityService"
-        private const val USAGE_RECORD_INTERVAL_MS = 60000L 
+        private const val USAGE_RECORD_INTERVAL_MS = 60000L
+
+        // SAFETY: Circuit Breaker (v1.5.54 - post-driving incident, 2026-05-19)
+        // If KiddoLock blocks more than CIRCUIT_BREAKER_MAX_BLOCKS distinct apps inside
+        // CIRCUIT_BREAKER_WINDOW_MS milliseconds, something is catastrophically wrong:
+        // either the cache is corrupt, memory pressure is misclassifying apps, or the
+        // blacklist exploded. In any of those cases we MUST disable protection so the
+        // user is not trapped (this is exactly what happened to Eitan while driving).
+        private const val CIRCUIT_BREAKER_MAX_BLOCKS = 8
+        private const val CIRCUIT_BREAKER_WINDOW_MS = 30_000L  // 30 seconds
+        private const val CIRCUIT_BREAKER_COOLDOWN_MS = 15 * 60_000L  // 15 min auto-suspend
     }
+
+    // Circuit-breaker state — tracks distinct package blocks in a rolling window
+    private val recentBlocks = java.util.ArrayDeque<Pair<String, Long>>()
+    private var lastCircuitBreakerToastMs = 0L
     // ⏰ Refresh persistent notification every 30s so the live timer in the pull-down updates
     private val notificationRefreshRunnable = object : Runnable {
         override fun run() {
@@ -374,11 +388,20 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
     private fun showBlockOverlay(packageName: String) {
         val now = System.currentTimeMillis()
-        
+
         // THROTTLING: If we just requested a block for the SAME package within 1s, skip redundant startService.
         // This prevents "flicker storm" from rapid TYPE_WINDOW_STATE_CHANGED events (common in Chrome/Incognito).
         if (packageName == lastBlockedPkg && (now - lastBlockTime < 1000)) {
             Log.v(TAG, "Throttling redundant block request for $packageName")
+            return
+        }
+
+        // CIRCUIT BREAKER (v1.5.54): track distinct package blocks in a 30s window. If we exceed
+        // CIRCUIT_BREAKER_MAX_BLOCKS distinct packages, treat as catastrophe and auto-suspend
+        // for 15 minutes so the user is not trapped (driving-incident safeguard).
+        if (checkCircuitBreaker(packageName, now)) {
+            Log.e(TAG, "CIRCUIT BREAKER TRIPPED — auto-suspending protection for 15 minutes")
+            triggerEmergencySuspend()
             return
         }
 
@@ -394,43 +417,102 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
         Log.i(TAG, "Showing block overlay for $packageName")
 
-        // CRITICAL ORDER (fix CRIT-3): START overlay FIRST, then HOME. If we go HOME first,
-        // the kid sees a confusing "app just closed" effect for ~300ms before the overlay
-        // shows. Worse, on slow devices the overlay can fail entirely if the service is
-        // killed during the HOME transition.
+        // CRITICAL SAFETY FIX (v1.5.54 - post-driving incident, 2026-05-19):
+        // The old behavior was: try to start the overlay, then ALWAYS call HOME after 120ms.
+        // Under memory pressure (driving with Waze + Bluetooth + YouTube), the overlay would
+        // silently fail but HOME would still execute - so Eitan saw apps closing one after
+        // another with no overlay, no explanation, while driving. Almost killed him.
+        // New behavior: HOME only fires if the overlay actually started. If overlay fails,
+        // do nothing - a blocked app might slip through for a few seconds, which is FAR safer
+        // than apps disappearing without warning.
         val intent = Intent(this, OverlayService::class.java).apply {
             action = "SHOW_OVERLAY"
             putExtra("package_name", packageName)
         }
+        var overlayStarted = false
         try {
             startService(intent)
+            overlayStarted = true
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start OverlayService - falling back to HOME only", e)
+            Log.e(TAG, "Failed to start OverlayService - NOT falling back to HOME (safety)", e)
         }
 
-        // Small delay so overlay window is laid out before we yank focus to home
-        handler.postDelayed({
-            lastNavigationTime = System.currentTimeMillis() // Start guard
-            performGlobalAction(GLOBAL_ACTION_HOME)
-        }, 120L)
+        if (overlayStarted) {
+            handler.postDelayed({
+                lastNavigationTime = System.currentTimeMillis() // Start guard
+                try { performGlobalAction(GLOBAL_ACTION_HOME) } catch (_: Throwable) {}
+            }, 120L)
+        }
 
-        // MEMORY CLEANUP: kill the blocked app's background processes so it doesn't accumulate in RAM.
-        // This frees memory and battery when the kid taps many blocked apps in sequence.
-        // Note: This kills only background processes, not foreground (which we just sent to home anyway).
+        // SAFETY FIX (v1.5.54): Removed killBackgroundProcesses entirely.
+        // Previous version killed background processes after blocking - this contributed
+        // to the driving incident where Waze and other allowed apps were terminated
+        // unexpectedly when KiddoLock's cache misfired. Memory cleanup is no longer
+        // KiddoLock's responsibility; Android's OOM killer handles it correctly.
+    }
+
+    /**
+     * SAFETY: Circuit Breaker — returns true if we are blocking too many distinct apps
+     * too quickly, which is the signature of a runaway cache / memory-pressure misfire.
+     */
+    private fun checkCircuitBreaker(packageName: String, now: Long): Boolean {
+        // Drop entries older than the window
+        while (recentBlocks.isNotEmpty() && (now - recentBlocks.peekFirst().second) > CIRCUIT_BREAKER_WINDOW_MS) {
+            recentBlocks.pollFirst()
+        }
+        // Add current block (we only count DISTINCT packages to avoid throttle noise)
+        if (recentBlocks.none { it.first == packageName }) {
+            recentBlocks.addLast(packageName to now)
+        }
+        return recentBlocks.size >= CIRCUIT_BREAKER_MAX_BLOCKS
+    }
+
+    /**
+     * SAFETY: emergency suspend — disable Kids Mode, clear all bypasses, set a 15-min
+     * global suppression, and notify the parent loudly. Called when the circuit breaker
+     * trips (too many app blocks in 30 seconds).
+     */
+    private fun triggerEmergencySuspend() {
         try {
-            val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
-            if (am != null && packageName != this.packageName) {
-                handler.postDelayed({
+            // 1. Turn Kids Mode off so per-app blocking stops
+            KidsModeManager(this).isEnabled = false
+            // 2. Clear all pending temporary unlocks and bypasses
+            AppBlockManager.clearAllBypasses(this)
+            // 3. Set a 15-min global suppression as a defensive belt-and-braces
+            try {
+                com.kiddolock.app.utils.Prefs(this).emergency_bypass_until =
+                    System.currentTimeMillis() + CIRCUIT_BREAKER_COOLDOWN_MS
+            } catch (_: Throwable) {}
+            // 4. Reset our own counters so a future false-positive doesn't trip immediately
+            recentBlocks.clear()
+            // 5. Hide any overlay that's currently up
+            try {
+                val hideIntent = Intent(this, OverlayService::class.java).apply { action = "HIDE_OVERLAY" }
+                startService(hideIntent)
+            } catch (_: Throwable) {}
+            // 6. Tell the parent loudly via notification + toast (throttle to once/5min)
+            val now = System.currentTimeMillis()
+            if (now - lastCircuitBreakerToastMs > 5 * 60_000L) {
+                lastCircuitBreakerToastMs = now
+                try {
+                    NotificationUtils.updateNotificationCustom(
+                        this,
+                        "🚨 KiddoLock השעה את עצמו",
+                        "זוהתה תקלה חריגה (יותר מ-${CIRCUIT_BREAKER_MAX_BLOCKS} חסימות ב-30 שניות). ההגנה הושהתה ל-15 דקות לבטיחותך. פתח את KiddoLock כדי לאתחל ידנית."
+                    )
+                } catch (_: Throwable) {}
+                handler.post {
                     try {
-                        am.killBackgroundProcesses(packageName)
-                        Log.d(TAG, "Killed background processes for blocked $packageName")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Could not kill background for $packageName: ${e.message}")
-                    }
-                }, 800L)  // delay so the user sees the overlay first, then we cleanup
+                        android.widget.Toast.makeText(
+                            this,
+                            "🚨 KiddoLock השעה את עצמו אוטומטית - שיחזור הגנה דרך האפליקציה",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    } catch (_: Throwable) {}
+                }
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "killBackground setup failed: ${e.message}")
+        } catch (e: Throwable) {
+            Log.e(TAG, "Circuit breaker emergency suspend failed", e)
         }
     }
 
@@ -460,4 +542,13 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                 startForeground(
                     NotificationUtils.KIDDO_NOTIFICATION_ID, 
                     notification,
- 
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(NotificationUtils.KIDDO_NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground", e)
+        }
+    }
+}
