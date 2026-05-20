@@ -77,41 +77,85 @@ class TimeScheduler(private val context: Context) {
         return isBedtimeActive() || isDailyLimitReached() || isInstantLocked()
     }
 
+    /** Total bonus minutes the parent granted TODAY (resets each day, like usage). */
+    fun getBonusMinutesToday(): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt("bonus_minutes_${getTodayKey()}", 0)
+    }
+
+    /** Daily limit + today's bonus = the effective allowance. */
+    fun getEffectiveDailyLimitMinutes(): Int {
+        return getConfig().dailyTimeLimitMinutes + getBonusMinutesToday()
+    }
+
     /**
-     * Parent grants bonus time - the kid gets [minutes] extra usage immediately, bypassing
-     * both daily limit and bedtime restrictions. The clock starts from the moment of grant.
+     * Parent grants bonus time. v1.5.61 FIX: bonus now ADDS ON TOP of the limits instead of
+     * replacing them.
+     *  - If a daily time limit is enabled: bonus minutes are ADDED to today's effective limit
+     *    (e.g. 60-min limit + 10 bonus = 70 effective). The original limit is preserved.
+     *  - If no daily limit (only bedtime): bonus extends a rolling time window from now, so the
+     *    kid gets that many real minutes even during bedtime.
+     * Either way the bonus lifts BOTH the daily limit and bedtime while it is active.
      */
     fun grantBonusTime(minutes: Int) {
-        val expiry = System.currentTimeMillis() + (minutes.toLong() * 60 * 1000L)
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-            .putLong("bonus_time_until", expiry)
-            .apply()
-        Log.i(TAG, "Granted $minutes minutes bonus time (expires at $expiry)")
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val config = getConfig()
+        if (config.dailyTimeLimitEnabled) {
+            val key = "bonus_minutes_${getTodayKey()}"
+            val current = prefs.getInt(key, 0)
+            prefs.edit().putInt(key, current + minutes).apply()
+            Log.i(TAG, "Bonus +$minutes min added to daily limit. Total bonus today: ${current + minutes}, effective limit: ${getEffectiveDailyLimitMinutes()}")
+        } else {
+            // No daily limit — use a rolling window so the bonus also covers bedtime.
+            val now = System.currentTimeMillis()
+            val currentUntil = prefs.getLong("bonus_time_until", 0L)
+            val base = maxOf(now, currentUntil)
+            prefs.edit().putLong("bonus_time_until", base + (minutes.toLong() * 60 * 1000L)).apply()
+            Log.i(TAG, "Bonus +$minutes min window (no daily limit). Active until ${base + minutes * 60000L}")
+        }
         try { com.kiddolock.app.management.AppBlockManager.invalidateCache() } catch (_: Throwable) {}
         try { com.kiddolock.app.utils.NotificationUtils.updateNotification(context, true) } catch (_: Throwable) {}
     }
 
-    /** True while parent-granted bonus minutes are still in effect. */
+    /**
+     * True while parent-granted bonus is still in effect. When active it lifts BOTH the daily
+     * limit and bedtime (bonus is the strongest rule — it wins over every restriction).
+     */
     fun isBonusTimeActive(): Boolean {
-        val until = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getLong("bonus_time_until", 0L)
-        return System.currentTimeMillis() < until
+        val config = getConfig()
+        if (config.dailyTimeLimitEnabled) {
+            // Additive bonus: active as long as usage hasn't consumed the effective (limit+bonus) allowance.
+            val bonus = getBonusMinutesToday()
+            return bonus > 0 && getTodayUsageMinutes() < getEffectiveDailyLimitMinutes()
+        } else {
+            // Window bonus (no daily limit case).
+            val until = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getLong("bonus_time_until", 0L)
+            return System.currentTimeMillis() < until
+        }
     }
 
     /** How many seconds of bonus time remain (0 if none). */
     fun getBonusTimeRemainingSec(): Long {
-        val until = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getLong("bonus_time_until", 0L)
-        val remaining = until - System.currentTimeMillis()
-        return if (remaining > 0) remaining / 1000 else 0L
+        if (!isBonusTimeActive()) return 0L
+        val config = getConfig()
+        return if (config.dailyTimeLimitEnabled) {
+            val remainMin = getEffectiveDailyLimitMinutes() - getTodayUsageMinutes()
+            maxOf(0L, remainMin.toLong() * 60)
+        } else {
+            val until = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getLong("bonus_time_until", 0L)
+            maxOf(0L, (until - System.currentTimeMillis()) / 1000)
+        }
     }
 
-    /** Parent revokes bonus time early. */
+    /** Parent revokes bonus early — clears both the additive bonus and the window. */
     fun cancelBonusTime() {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
             .remove("bonus_time_until")
+            .remove("bonus_minutes_${getTodayKey()}")
             .apply()
-        Log.i(TAG, "Bonus time cancelled by parent")
+        Log.i(TAG, "Bonus cancelled by parent")
         try { com.kiddolock.app.management.AppBlockManager.invalidateCache() } catch (_: Throwable) {}
     }
 
@@ -228,7 +272,9 @@ class TimeScheduler(private val context: Context) {
     fun getRemainingMinutes(): Int {
         val config = getConfig()
         if (!config.dailyTimeLimitEnabled) return Int.MAX_VALUE
-        return maxOf(0, config.dailyTimeLimitMinutes - getTodayUsageMinutes())
+        // v1.5.61: count remaining against the EFFECTIVE limit (daily + bonus), so a +10 bonus
+        // really shows 10 extra minutes left instead of replacing the limit.
+        return maxOf(0, getEffectiveDailyLimitMinutes() - getTodayUsageMinutes())
     }
 
     /**
@@ -242,7 +288,9 @@ class TimeScheduler(private val context: Context) {
     }
 
     private fun isDailyLimitExceeded(limitMinutes: Int): Boolean {
-        return getTodayUsageMinutes() >= limitMinutes
+        // v1.5.61: the limit is exceeded only when usage passes the EFFECTIVE allowance
+        // (configured limit + today's bonus). Bonus adds on top, never replaces.
+        return getTodayUsageMinutes() >= (limitMinutes + getBonusMinutesToday())
     }
 
     private fun getTodayKey(): String {
@@ -259,4 +307,53 @@ class TimeScheduler(private val context: Context) {
             quietHoursEnd = endHour
         )
         saveConfig(config)
-        Log.i(TAG, "Quiet hours enabled: $startHour:00 -> $endHour:00
+        Log.i(TAG, "Quiet hours enabled: $startHour:00 -> $endHour:00")
+    }
+
+    fun disableQuietHours() {
+        val config = getConfig().copy(quietHoursEnabled = false)
+        saveConfig(config)
+    }
+
+    fun setDailyTimeLimit(minutes: Int) {
+        val config = getConfig().copy(
+            dailyTimeLimitEnabled = true,
+            dailyTimeLimitMinutes = minutes
+        )
+        saveConfig(config)
+        Log.i(TAG, "Daily time limit set: $minutes minutes")
+    }
+
+    fun disableDailyTimeLimit() {
+        val config = getConfig().copy(dailyTimeLimitEnabled = false)
+        saveConfig(config)
+    }
+
+    fun setInstantLock(locked: Boolean) {
+        val config = getConfig().copy(isInstantLocked = locked)
+        saveConfig(config)
+        Log.w(TAG, "Instant Lock ${if (locked) "ENABLED" else "DISABLED"}")
+    }
+
+    // --- UI Helpers ---
+
+    fun getBedtimeRangeString(): String? {
+        val config = getConfig()
+        if (!config.quietHoursEnabled) return null
+        return String.format("%02d:%02d - %02d:%02d", 
+            config.quietHoursStart, config.quietHoursStartMin,
+            config.quietHoursEnd, config.quietHoursEndMin)
+    }
+
+    fun getDailyLimitString(): String? {
+        val config = getConfig()
+        if (!config.dailyTimeLimitEnabled) return null
+        val hours = config.dailyTimeLimitMinutes / 60
+        val mins = config.dailyTimeLimitMinutes % 60
+        return when {
+            hours > 0 && mins > 0 -> "$hours שעות ו-$mins דקות"
+            hours > 0 -> "$hours שעות"
+            else -> "$mins דקות"
+        }
+    }
+}

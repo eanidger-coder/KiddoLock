@@ -321,10 +321,10 @@ app.post('/api/feedback', async (c) => {
 // ============================================
 // The app polls this to learn whether a newer APK is available. APKs are hosted on
 // GitHub Releases (free). Update LATEST_* whenever a new release is published.
-const LATEST_VERSION_NAME = '1.5.60';
-const LATEST_VERSION_CODE = 70;
-const LATEST_APK_URL = 'https://github.com/eanidger-coder/KiddoLock/releases/download/v1.5.60/KiddoLock-v1.5.60.apk';
-const LATEST_CHANGELOG = 'תיקון ANR/קפיאה: הוסרו קריאות חוסמות (rootInActiveWindow) מ-thread ראשי. יציבות מלאה.';
+const LATEST_VERSION_NAME = '1.5.61';
+const LATEST_VERSION_CODE = 71;
+const LATEST_APK_URL = 'https://github.com/eanidger-coder/KiddoLock/releases/download/v1.5.61/KiddoLock-v1.5.61.apk';
+const LATEST_CHANGELOG = 'בונוס מתוקן: מוסיף על מגבלת הזמן ושעת השינה במקום להחליף. הבונוס הוא החוק החזק ביותר.';
 
 app.get('/api/latest-version', (c) => {
   return c.json({
@@ -594,7 +594,3 @@ app.get('/admin/status', async (c) => {
     `SELECT command_type, COUNT(*) as n FROM commands WHERE status='pending' GROUP BY command_type`
   ).all();
   return c.json({ pending: results });
-});
-
-
-export default app;
