@@ -39,8 +39,9 @@ async function verifySignature(
 const signatureMiddleware = async (c: any, next: any) => {
   const path = new URL(c.req.url).pathname;
 
-  // Feedback + OTA version check are exempt - no HMAC needed (parent-facing, read-only/safe)
-  if (path === '/api/feedback' || path === '/api/latest-version') {
+  // Public/parent-facing endpoints exempt from HMAC (read-only / safe)
+  if (path === '/api/feedback' || path === '/api/latest-version' ||
+      path === '/download' || path === '/get') {
     return await next();
   }
 
@@ -336,6 +337,62 @@ app.get('/api/latest-version', (c) => {
   });
 });
 
+// 📥 Direct APK download - always serves the latest release (redirect).
+app.get('/download', (c) => c.redirect(LATEST_APK_URL));
+
+// 🏠 Public landing/download page for parents who want to try KiddoLock.
+// Share this single link: kiddolock-api.eanidger.workers.dev/get
+app.get('/get', (c) => {
+  const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KiddoLock - בקרת הורים חכמה</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(160deg,#0D0B1A,#1A1432);color:#fff;min-height:100vh;text-align:center;padding:32px 20px}
+      .logo{font-size:64px;margin:20px 0 10px}
+      h1{font-size:30px;color:#00E5FF;margin-bottom:8px}
+      .sub{color:#B8B5C8;font-size:16px;margin-bottom:28px;line-height:1.6}
+      .card{background:#1A1432;border:1px solid #2d2548;border-radius:16px;padding:22px;max-width:440px;margin:0 auto 18px;text-align:right}
+      .card h3{color:#9B6EFF;margin-bottom:10px;font-size:17px}
+      .card p{color:#D8D5E8;font-size:14px;line-height:1.7}
+      .btn{display:block;background:linear-gradient(135deg,#00E5FF,#7C4DFF);color:#fff;text-decoration:none;font-size:20px;font-weight:bold;padding:18px;border-radius:14px;max-width:440px;margin:0 auto 14px;box-shadow:0 6px 20px rgba(124,77,255,0.4)}
+      .ver{color:#6B6780;font-size:13px;margin-top:8px}
+      .steps{counter-reset:s;list-style:none;padding:0}
+      .steps li{counter-increment:s;margin-bottom:12px;padding-right:34px;position:relative;color:#D8D5E8;font-size:14px;line-height:1.6}
+      .steps li::before{content:counter(s);position:absolute;right:0;top:0;background:#7C4DFF;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold}
+      .feat{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:24px}
+      .chip{background:#241c3d;border:1px solid #3a2f5e;border-radius:20px;padding:7px 14px;font-size:13px;color:#C8C2E0}
+    </style></head><body>
+    <div class="logo">🛡️</div>
+    <h1>KiddoLock</h1>
+    <p class="sub">בקרת הורים חכמה בעברית<br/>זמן מסך · שעת שינה · חסימת אפליקציות · בונוס זמן</p>
+    <a class="btn" href="/download">📥 הורד את האפליקציה</a>
+    <p class="ver">גרסה ${LATEST_VERSION_NAME}</p>
+    <div class="feat">
+      <span class="chip">⏰ מגבלת זמן יומית</span>
+      <span class="chip">🌙 שעת שינה</span>
+      <span class="chip">🚗 ניווט תמיד פתוח</span>
+      <span class="chip">🎁 בונוס זמן</span>
+      <span class="chip">🆓 חינמי</span>
+    </div>
+    <div class="card">
+      <h3>📲 איך מתקינים</h3>
+      <ol class="steps">
+        <li>לוחצים על "הורד את האפליקציה" למעלה</li>
+        <li>פותחים את הקובץ שירד (KiddoLock.apk)</li>
+        <li>אם אנדרואיד מבקש - מאשרים "התקנה ממקור זה"</li>
+        <li>פותחים את KiddoLock ועוברים את ההגדרה המודרכת</li>
+        <li>מגדירים קוד PIN שרק ההורה יודע</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>🔓 חשוב לדעת</h3>
+      <p>KiddoLock תמיד משאיר להורה דרך יציאה: כיבוי "מצב ילדים" במסך הראשי, או הזנת קוד ה-PIN. אפליקציות ניווט (Waze, Maps) ושיחות חירום תמיד פתוחות.</p>
+    </div>
+    </body></html>`;
+  return c.html(html);
+});
+
 
 // ============================================
 // 🚨 EMERGENCY ADMIN PANEL (no HMAC, uses ADMIN_KEY query)
@@ -537,60 +594,4 @@ app.get('/admin/kill-device/:id', async (c) => {
   const liveBadge = isFresh
     ? '<div style="background:#00c853;padding:8px 12px;border-radius:6px;margin:10px 0">✅ המכשיר פעיל - הפקודה תתבצע תוך 15 דקות.</div>'
     : '<div style="background:#FFA502;padding:8px 12px;border-radius:6px;margin:10px 0">⚠️ המכשיר לא דיווח לאחרונה. הפקודה ממתינה ותתבצע ברגע שהוא יחזור לאינטרנט. אם הוא במצב טיסה או כבוי, היא תחכה.</div>';
-  return c.html(`<div style="padding:30px;background:#0d0b1a;color:#fff;font-family:Arial;direction:rtl">
-    <h2 style="color:#0f0">✅ פקודת KILL נשלחה</h2>
-    <p>מכשיר: <strong>${dev?.device_name || id.substring(0,8) + '...'}</strong></p>
-    <p>Heartbeat אחרון: ${lastHB}</p>
-    ${liveBadge}
-    <p style="margin-top:20px"><a href="/admin?key=${ADMIN_KEY}" style="background:#00e5ff;color:#0d0b1a;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">חזור לדשבורד</a></p>
-  </div>`);
-});
-app.get('/admin/disable-kids/:id', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  await queueCommand(c, c.req.param('id'), 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disable Kids Mode queued. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-app.get('/admin/uninstall/:id', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  await queueCommand(c, c.req.param('id'), 'EMERGENCY_KILL_SWITCH');
-  await queueCommand(c, c.req.param('id'), 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Uninstall sequence queued. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-
-// All-devices commands
-app.get('/admin/kill-all', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  const n = await queueCommand(c, null, 'EMERGENCY_KILL_SWITCH');
-  const fresh: any = await c.env.DB.prepare(
-    `SELECT COUNT(*) as cnt FROM devices WHERE last_heartbeat >= datetime('now','-30 minutes')`
-  ).first();
-  const freshCnt = fresh?.cnt || 0;
-  return c.html(`<div style="padding:30px;background:#0d0b1a;color:#fff;font-family:Arial;direction:rtl">
-    <h2 style="color:#0f0">✅ KILL ALL נשלח ל-${n} מכשירים</h2>
-    <div style="background:${freshCnt > 0 ? '#00c853' : '#FFA502'};padding:10px;border-radius:6px;margin:15px 0">
-      ${freshCnt > 0 
-        ? `✅ ${freshCnt} מכשירים פעילים בחצי שעה האחרונה - יקבלו את הפקודה תוך 15 דקות.`
-        : '⚠️ אין מכשירים פעילים כעת. הפקודות ממתינות בתור ויתבצעו ברגע שמכשיר יחזור לאינטרנט.'}
-    </div>
-    <p style="margin-top:20px"><a href="/admin?key=${ADMIN_KEY}" style="background:#00e5ff;color:#0d0b1a;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">חזור לדשבורד</a></p>
-  </div>`);
-});
-app.get('/admin/disable-kids-all', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  const n = await queueCommand(c, null, 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disable Kids Mode queued for ${n} devices. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-app.get('/admin/uninstall-all', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  await queueCommand(c, null, 'EMERGENCY_KILL_SWITCH');
-  const n = await queueCommand(c, null, 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Uninstall sequence queued for ${n} devices. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-
-// Quick health endpoint that returns whether there are pending kill commands - useful for emergency status
-app.get('/admin/status', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  const { results } = await c.env.DB.prepare(
-    `SELECT command_type, COUNT(*) as n FROM commands WHERE status='pending' GROUP BY command_type`
-  ).all();
-  return c.json({ pending: results });
+  return c.html(`<div style="padding:30px;background:#0d0
