@@ -24,28 +24,43 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.i(TAG, "Boot completed — checking if KiddoLock should auto-start")
+        Log.i(TAG, "Boot received: ${intent.action}")
 
-        // 🚨 קריטי: רושם את ה-Heartbeat גם אחרי boot, גם אם ההגנה כבויה.
-        // כך מתג הכיבוי המרחוק תמיד עובד.
+        // CRASH FIX (v1.5.58): During LOCKED_BOOT_COMPLETED (before the user unlocks the
+        // device for the first time after reboot), credential-encrypted SharedPreferences are
+        // NOT available and any access throws IllegalStateException - which crashed BootReceiver.
+        // We now read prefs from device-protected storage and wrap everything defensively so a
+        // boot crash can never happen. The accessibility service restarts on its own regardless.
+        val isLockedBoot = intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
+
+        // Heartbeat scheduling does not need credential storage - safe to run always.
         try {
             com.kiddolock.app.management.HeartbeatWorker.schedule(context)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Failed to schedule heartbeat after boot", e)
         }
 
-        val prefs = context.getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
-        
-        // Don't start if user explicitly disabled everything
-        if (prefs.getBoolean("disable_all_filters", false)) {
-            Log.i(TAG, "Filters disabled by user — skipping auto-start")
-            return
+        // Reading the disable flag requires storage. Use device-protected storage so it works
+        // even during locked boot; fall back gracefully if anything is unavailable.
+        try {
+            val safeContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context.createDeviceProtectedStorageContext()
+            } else {
+                context
+            }
+            val prefs = safeContext.getSharedPreferences("kiddolock_prefs", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("disable_all_filters", false)) {
+                Log.i(TAG, "Filters disabled by user — skipping auto-start")
+                return
+            }
+        } catch (e: Throwable) {
+            // Storage not ready yet (locked boot) — that's fine. The accessibility service
+            // restarts automatically once the user unlocks. Never crash here.
+            Log.w(TAG, "Prefs not available at boot (${if (isLockedBoot) "locked boot" else "boot"}) — relying on auto-restart: ${e.message}")
         }
 
         // Note: Accessibility Service cannot be started programmatically —
-        // it retains its enabled state across reboots automatically.
-        // If the user enabled it before reboot, Android will restart it.
-        // it retains its enabled state across reboots automatically.
-        // If the user enabled it before reboot, Android will restart it.
+        // it retains its enabled state across reboots and Android restarts it automatically
+        // once the user unlocks the device.
     }
 }
