@@ -321,10 +321,10 @@ app.post('/api/feedback', async (c) => {
 // ============================================
 // The app polls this to learn whether a newer APK is available. APKs are hosted on
 // GitHub Releases (free). Update LATEST_* whenever a new release is published.
-const LATEST_VERSION_NAME = '1.5.58';
-const LATEST_VERSION_CODE = 68;
-const LATEST_APK_URL = 'https://github.com/eanidger-coder/KiddoLock/releases/download/v1.5.58/KiddoLock-v1.5.58.apk';
-const LATEST_CHANGELOG = 'תיקון אמינות הפעלה מחדש, דיווח אוטומטי על תקלות, צילום מסך בפידבק, ועדכון אוטומטי.';
+const LATEST_VERSION_NAME = '1.5.59';
+const LATEST_VERSION_CODE = 69;
+const LATEST_APK_URL = 'https://github.com/eanidger-coder/KiddoLock/releases/download/v1.5.59/KiddoLock-v1.5.59.apk';
+const LATEST_CHANGELOG = 'תיקון קריטי: לולאת CPU שגרמה למסך שחור. דיווח אוטומטי על תקלות, צילום מסך בפידבק, עדכון אוטומטי.';
 
 app.get('/api/latest-version', (c) => {
   return c.json({
@@ -548,4 +548,4 @@ app.get('/admin/kill-device/:id', async (c) => {
 app.get('/admin/disable-kids/:id', async (c) => {
   const auth = checkAdmin(c); if (auth) return auth;
   await queueCommand(c, c.req.param('id'), 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disa
+  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a

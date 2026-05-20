@@ -95,19 +95,21 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                                 // 2. CHECK: If we are on a safe screen (Home/System/Allowed), hide any stale overlay
                                 val timeSinceBlock = System.currentTimeMillis() - lastBlockTime
                                 
-                                // SAFETY (v1.5.56): wait at least 5s after a block before periodic-check hides
-                                // the overlay. This guarantees the user actually sees the block screen for a
-                                // meaningful duration — overlay flashing for <500ms (driving incident) is the bug.
-                                if ((appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) && timeSinceBlock > 5000) {
-                                    Log.v(TAG, "Periodic check: Actual window is $realPkg (Safe). Hiding stale overlay (Time since block: $timeSinceBlock ms)")
+                                // CRITICAL CPU-LOOP FIX (v1.5.59): only send HIDE_OVERLAY if an overlay
+                                // is ACTUALLY shown. The launcher fires dozens of accessibility events per
+                                // second; the old code sent startService(HIDE_OVERLAY) on EVERY one once
+                                // 5s had passed since a block — even when no overlay existed. That spun
+                                // KiddoLock to ~75% CPU and caused a black screen. Gating on
+                                // OverlayService.isOverlayCurrentlyShown means HIDE fires once, the flag
+                                // flips false, and the loop stops immediately.
+                                if (OverlayService.isOverlayCurrentlyShown &&
+                                    (appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) &&
+                                    timeSinceBlock > 5000) {
+                                    Log.v(TAG, "Hiding stale overlay (Time since block: $timeSinceBlock ms)")
                                     val intent = Intent(this@KiddoLockAccessibilityService, OverlayService::class.java).apply {
                                         action = "HIDE_OVERLAY"
                                     }
                                     startService(intent)
-                                } else if (timeSinceBlock <= 5000) {
-                                    Log.v(TAG, "Periodic check: NOT hiding overlay yet — only ${timeSinceBlock}ms since block, min 5000ms")
-                                } else {
-                                    Log.v(TAG, "Periodic check: $realPkg is active. Persistence guard active or not a safe screen. Keeping overlay.")
                                 }
                                 currentForegroundPackage = realPkg
                                 return@let
@@ -561,5 +563,4 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         Log.i(TAG, "Service connected. Configuring...")
 
         serviceInfo = serviceInfo?.apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                         Accessibi
+            // CPU-LOOP FIX (v1.5.59): removed TYPE_WINDOW_CONTENT_CHANGED. Tha
