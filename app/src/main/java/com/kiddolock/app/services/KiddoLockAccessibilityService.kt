@@ -75,20 +75,17 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                     }
                 } catch (_: Throwable) {}
 
-                // REFRESH PACKAGE TRACKING: Ensure we aren't using a stale value from a missed event
-                val activePkg = rootInActiveWindow?.packageName?.toString()
-                if (activePkg != null && !activePkg.contains("com.android.systemui") && activePkg != packageName) {
-                    currentForegroundPackage = activePkg
-                }
-
+                // CRITICAL ANR FIX (v1.5.60): do NOT call rootInActiveWindow here. This runnable
+                // ran on the main looper, and rootInActiveWindow blocks waiting for a window node;
+                // under load it froze the UI → ANR → crash. currentForegroundPackage is kept fresh
+                // by onAccessibilityEvent, so we rely on it (non-blocking).
                 currentForegroundPackage?.let { pkg ->
                     // Do not block our own app or system UI
                     if (pkg != packageName && !pkg.contains("com.android.systemui")) {
                         val appManager = AppBlockManager.getAppManager(this@KiddoLockAccessibilityService)
-                        
-                        // DOUBLE CHECK: Is the app actually in foreground AND not the launcher?
-                        // This prevents "jumping" when the record is stale but user is actually Home.
-                        val realPkg = rootInActiveWindow?.packageName?.toString()
+
+                        // Use the same cached value (non-blocking) instead of rootInActiveWindow.
+                        val realPkg = currentForegroundPackage
                         if (realPkg != null) {
                             if (appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) {
                                 Log.v(TAG, "Periodic check: Actual window is $realPkg (Safe). Skipping stale block for $pkg")
@@ -294,7 +291,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                 // REGRESSION FIX: If we just blocked an app, we want the overlay to STAY visible
                 // over the HOME screen. Only hide if it's been a while.
                 val timeSinceBlock = System.currentTimeMillis() - lastBlockTime
-                if (appManager.isLauncher(packageName) && timeSinceBlock > 5000) {
+                if (OverlayService.isOverlayCurrentlyShown && appManager.isLauncher(packageName) && timeSinceBlock > 5000) {
                     Log.v(TAG, "Aggressive Detection: Launcher $packageName detected. Hiding overlay.")
                     val intent = Intent(this, OverlayService::class.java).apply {
                         action = "HIDE_OVERLAY"
@@ -330,18 +327,24 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             val kidsMode = KidsModeManager(this)
 
             if (appManager.isSystemProtected(packageName) || appManager.isLauncher(packageName)) {
-                Log.v(TAG, "Event in $packageName: Whitelisted (System/Launcher). Ensuring overlay hidden.")
-                val intent = Intent(this, OverlayService::class.java).apply {
-                    action = "HIDE_OVERLAY"
+                // Only send HIDE if an overlay is actually shown (prevents startService flood / CPU loop)
+                if (OverlayService.isOverlayCurrentlyShown) {
+                    Log.v(TAG, "Event in $packageName: Whitelisted (System/Launcher). Ensuring overlay hidden.")
+                    val intent = Intent(this, OverlayService::class.java).apply {
+                        action = "HIDE_OVERLAY"
+                    }
+                    startService(intent)
                 }
-                startService(intent)
                 return
             }
 
-            // 0.2 Root Window Heuristic
-            // Ensure the window being reported is actually the active one.
-            // If the user just pressed "Home", we might still get events for the previous app (Gallery).
-            val activePkg = rootInActiveWindow?.packageName?.toString()
+            // 0.2 Active-window heuristic — uses the cached foreground package, NOT rootInActiveWindow.
+            // CRITICAL ANR FIX (v1.5.60): the old code called rootInActiveWindow here on the MAIN
+            // thread. Under memory pressure or a network change that call blocks waiting for the
+            // window node (AccessibilityInteractionClient.waitForResultTimedLocked) and the whole
+            // UI freezes → ANR → crash (Eitan's 15:59 incident). currentForegroundPackage is updated
+            // from incoming events and is safe, instant, and non-blocking.
+            val activePkg = currentForegroundPackage
             if (activePkg != null && activePkg != packageName) {
                 if (appManager.isLauncher(activePkg) || appManager.isSystemProtected(activePkg)) {
                     Log.v(TAG, "Heuristic: Ignoring event for $packageName. Active window is $activePkg (Safe)")
@@ -563,4 +566,41 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         Log.i(TAG, "Service connected. Configuring...")
 
         serviceInfo = serviceInfo?.apply {
-            // CPU-LOOP FIX (v1.5.59): removed TYPE_WINDOW_CONTENT_CHANGED. Tha
+            // CPU-LOOP FIX (v1.5.59): removed TYPE_WINDOW_CONTENT_CHANGED. That event fires dozens
+            // of times per second on the Samsung launcher (widgets, animations, clocks) and was the
+            // engine that drove our runaway loop. WINDOW_STATE_CHANGED + WINDOWS_CHANGED are enough
+            // to detect app switches, which is all we need. notificationTimeout raised to 300ms to
+            // further debounce bursts.
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                         AccessibilityEvent.TYPE_WINDOWS_CHANGED
+            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+            notificationTimeout = 300
+            flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+    } ?: serviceInfo
+
+        // CPU-LOOP FIX (v1.5.59): always cancel any existing scheduled runnables before
+        // re-scheduling. onServiceConnected can fire multiple times (reconnects); without this
+        // each call stacked another periodic-check instance, compounding to ~30 runs/sec → 75% CPU
+        // and a black screen.
+        handler.removeCallbacks(periodicCheckRunnable)
+        handler.removeCallbacks(notificationRefreshRunnable)
+        handler.postDelayed(notificationRefreshRunnable, 5000)
+        handler.postDelayed(periodicCheckRunnable, 12000)
+
+        // Start foreground
+        try {
+            val notification = NotificationUtils.buildNotification(this, true)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                startForeground(
+                    NotificationUtils.KIDDO_NOTIFICATION_ID, 
+                    notification,
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(NotificationUtils.KIDDO_NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground", e)
+        }
+    }
+}

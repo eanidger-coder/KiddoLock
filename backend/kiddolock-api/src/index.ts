@@ -321,10 +321,10 @@ app.post('/api/feedback', async (c) => {
 // ============================================
 // The app polls this to learn whether a newer APK is available. APKs are hosted on
 // GitHub Releases (free). Update LATEST_* whenever a new release is published.
-const LATEST_VERSION_NAME = '1.5.59';
-const LATEST_VERSION_CODE = 69;
-const LATEST_APK_URL = 'https://github.com/eanidger-coder/KiddoLock/releases/download/v1.5.59/KiddoLock-v1.5.59.apk';
-const LATEST_CHANGELOG = 'תיקון קריטי: לולאת CPU שגרמה למסך שחור. דיווח אוטומטי על תקלות, צילום מסך בפידבק, עדכון אוטומטי.';
+const LATEST_VERSION_NAME = '1.5.60';
+const LATEST_VERSION_CODE = 70;
+const LATEST_APK_URL = 'https://github.com/eanidger-coder/KiddoLock/releases/download/v1.5.60/KiddoLock-v1.5.60.apk';
+const LATEST_CHANGELOG = 'תיקון ANR/קפיאה: הוסרו קריאות חוסמות (rootInActiveWindow) מ-thread ראשי. יציבות מלאה.';
 
 app.get('/api/latest-version', (c) => {
   return c.json({
@@ -548,4 +548,53 @@ app.get('/admin/kill-device/:id', async (c) => {
 app.get('/admin/disable-kids/:id', async (c) => {
   const auth = checkAdmin(c); if (auth) return auth;
   await queueCommand(c, c.req.param('id'), 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a
+  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disable Kids Mode queued. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
+});
+app.get('/admin/uninstall/:id', async (c) => {
+  const auth = checkAdmin(c); if (auth) return auth;
+  await queueCommand(c, c.req.param('id'), 'EMERGENCY_KILL_SWITCH');
+  await queueCommand(c, c.req.param('id'), 'DISABLE_PROTECTION');
+  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Uninstall sequence queued. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
+});
+
+// All-devices commands
+app.get('/admin/kill-all', async (c) => {
+  const auth = checkAdmin(c); if (auth) return auth;
+  const n = await queueCommand(c, null, 'EMERGENCY_KILL_SWITCH');
+  const fresh: any = await c.env.DB.prepare(
+    `SELECT COUNT(*) as cnt FROM devices WHERE last_heartbeat >= datetime('now','-30 minutes')`
+  ).first();
+  const freshCnt = fresh?.cnt || 0;
+  return c.html(`<div style="padding:30px;background:#0d0b1a;color:#fff;font-family:Arial;direction:rtl">
+    <h2 style="color:#0f0">✅ KILL ALL נשלח ל-${n} מכשירים</h2>
+    <div style="background:${freshCnt > 0 ? '#00c853' : '#FFA502'};padding:10px;border-radius:6px;margin:15px 0">
+      ${freshCnt > 0 
+        ? `✅ ${freshCnt} מכשירים פעילים בחצי שעה האחרונה - יקבלו את הפקודה תוך 15 דקות.`
+        : '⚠️ אין מכשירים פעילים כעת. הפקודות ממתינות בתור ויתבצעו ברגע שמכשיר יחזור לאינטרנט.'}
+    </div>
+    <p style="margin-top:20px"><a href="/admin?key=${ADMIN_KEY}" style="background:#00e5ff;color:#0d0b1a;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">חזור לדשבורד</a></p>
+  </div>`);
+});
+app.get('/admin/disable-kids-all', async (c) => {
+  const auth = checkAdmin(c); if (auth) return auth;
+  const n = await queueCommand(c, null, 'DISABLE_PROTECTION');
+  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disable Kids Mode queued for ${n} devices. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
+});
+app.get('/admin/uninstall-all', async (c) => {
+  const auth = checkAdmin(c); if (auth) return auth;
+  await queueCommand(c, null, 'EMERGENCY_KILL_SWITCH');
+  const n = await queueCommand(c, null, 'DISABLE_PROTECTION');
+  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Uninstall sequence queued for ${n} devices. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
+});
+
+// Quick health endpoint that returns whether there are pending kill commands - useful for emergency status
+app.get('/admin/status', async (c) => {
+  const auth = checkAdmin(c); if (auth) return auth;
+  const { results } = await c.env.DB.prepare(
+    `SELECT command_type, COUNT(*) as n FROM commands WHERE status='pending' GROUP BY command_type`
+  ).all();
+  return c.json({ pending: results });
+});
+
+
+export default app;
