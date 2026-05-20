@@ -352,11 +352,15 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             // EMERGENCY RULE: If Global Suppression is active, the parent is in control.
             // PER-APP RULE: If the app is temporarily unlocked by PIN, allow it.
             // Do not block critical apps during this window (allows for fixes or uninstallation).
-            if (kidsMode.isEnabled && isCritical && !packageName.contains("kiddolock") && 
+            if (kidsMode.isEnabled && isCritical && !packageName.contains("kiddolock") &&
                 !AppBlockManager.isGlobalSuppressed && !AppBlockManager.isTemporarilyUnlocked(packageName)) {
                 Log.w(TAG, "SAFEGUARD: Blocking critical app $packageName")
-                lastNavigationTime = System.currentTimeMillis() // Start guard
-                performGlobalAction(GLOBAL_ACTION_HOME)
+                // SAFETY FIX (v1.5.56): do NOT call performGlobalAction(HOME) directly here.
+                // The old code pressed HOME unconditionally, then called showBlockOverlay which
+                // only THEN checked overlay permission. Result: with no overlay permission, the
+                // app was closed silently (no block screen) - exactly the bug Eitan hit.
+                // showBlockOverlay now performs HOME itself, but only AFTER verifying the overlay
+                // actually rendered. So a single call here is both correct and safe.
                 showBlockOverlay(packageName)
                 return
             }
@@ -527,4 +531,46 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                     } catch (_: Throwable) {}
-              
+                }
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Circuit breaker emergency suspend failed", e)
+        }
+    }
+
+    override fun onInterrupt() {}
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Log.i(TAG, "Service connected. Configuring...")
+
+        serviceInfo = serviceInfo?.apply {
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                         AccessibilityEvent.TYPE_WINDOWS_CHANGED
+            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+            notificationTimeout = 100
+            flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+                handler.postDelayed(notificationRefreshRunnable, 5000)
+    } ?: serviceInfo
+
+        // Start periodic check
+        handler.postDelayed(periodicCheckRunnable, 12000)
+
+        // Start foreground
+        try {
+            val notification = NotificationUtils.buildNotification(this, true)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                startForeground(
+                    NotificationUtils.KIDDO_NOTIFICATION_ID, 
+                    notification,
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(NotificationUtils.KIDDO_NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground", e)
+        }
+    }
+}

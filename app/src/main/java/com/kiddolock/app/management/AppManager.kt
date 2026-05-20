@@ -129,7 +129,14 @@ class AppManager(private val context: Context) {
         "com.vanced.manager",                        // Vanced Manager
         "app.revanced.android.youtube",              // ReVanced
         "app.rvx.android.youtube",                   // ReVanced eXtended (RVX)
-        "app.rvx.android.youtube.music",             // RVX Music
+        "app.rvx.android.youtube.music",             // RVX Music (old pkg)
+        "app.rvx.android.apps.youtube.music",        // RVX Music (actual pkg, found on device v1.5.57)
+        "com.biomes.vanced",                         // Vanced (biomes fork - found on device)
+        "app.rvx.manager.flutter",                   // RVX Manager (can reinstall RVX!)
+        "com.revanced.net.revancedmanager",          // ReVanced Manager
+        "app.revanced.manager.flutter",              // ReVanced Manager (flutter variant)
+        "app.revanced.android.apps.youtube.music",   // ReVanced Music
+        "com.kapp.youtube.final",                    // YMusic (YouTube audio ripper)
         "org.schabi.newpipe",                        // NewPipe
         "org.schabi.newpipelegacy",                  // NewPipe Legacy
         "io.github.polymeilex.newpipe.fork",         // NewPipe forks
@@ -718,6 +725,27 @@ class AppManager(private val context: Context) {
             Log.w(TAG, "Migration V18: SAFETY - removed ${removed} navigation apps from blacklist (Waze, Maps etc.)")
         }
 
+        // Migration: V19 - YouTube/RVX/Vanced variants discovered during device QA (v1.5.57).
+        // These slipped through because the blacklist model only blocks listed packages -
+        // any unlisted YouTube fork (Vanced biomes, RVX Music, ReVanced/RVX managers) was allowed.
+        if (blacklistVersion < 19) {
+            val ytVariants = setOf(
+                "com.biomes.vanced",                       // Vanced (biomes fork)
+                "app.rvx.android.apps.youtube.music",      // RVX Music (actual pkg)
+                "app.rvx.manager.flutter",                 // RVX Manager (can reinstall RVX!)
+                "com.revanced.net.revancedmanager",        // ReVanced Manager
+                "app.revanced.manager.flutter",            // ReVanced Manager (flutter)
+                "app.revanced.android.apps.youtube.music", // ReVanced Music
+                "com.kapp.youtube.final"                   // YMusic
+            )
+            val before = blacklistedApps.size
+            blacklistedApps.addAll(ytVariants)
+            val added = blacklistedApps.size - before
+            saveBlacklist()
+            prefs.edit().putInt("blacklist_version", 19).apply()
+            Log.i(TAG, "Migration V19: Added ${added} YouTube/RVX/Vanced variants found in QA")
+        }
+
         Log.i(TAG, "App Manager initialized: ${blacklistedApps.size} apps blacklisted, blocking=${blockingEnabled}")
     }
 
@@ -761,4 +789,113 @@ class AppManager(private val context: Context) {
             val pm = context.packageManager
             val flags = PackageManager.MATCH_DEFAULT_ONLY
             val resolveInfos = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
+            } else {
+                pm.queryIntentActivities(intent, flags)
+            }
+            
+            launcherPackages.clear()
+            resolveInfos.forEach { 
+                val pkg = it.activityInfo.packageName
+                // PRECISION FILTER: A launcher should NOT be a critical blocked app (like Settings)
+                // We check basic patterns here to avoid circular dependencies with AppBlockManager
+                val isCriticalPattern = pkg.contains("settings", ignoreCase = true) || 
+                                      pkg.contains("packageinstaller", ignoreCase = true) ||
+                                      pkg.contains("chrome", ignoreCase = true) ||
+                                      pkg.contains("browser", ignoreCase = true)
+                
+                if (!isCriticalPattern) {
+                    launcherPackages.add(pkg)
+                }
+            }
+            lastLauncherUpdate = System.currentTimeMillis()
+            Log.d(TAG, "Launcher cache updated (filtered): $launcherPackages")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating launcher cache", e)
+        }
+    }
+
+    /**
+     * Check if a package is blacklisted and should be blocked.
+     */
+    fun isBlacklisted(packageName: String): Boolean {
+        if (CORE_SYSTEM_WHITELIST.contains(packageName)) return false
+        return blacklistedApps.contains(packageName)
+    }
+
+    /**
+     * Check if a package is a system-protected app that cannot be toggled.
+     */
+    fun isSystemProtected(packageName: String): Boolean {
+        return CORE_SYSTEM_WHITELIST.contains(packageName)
+    }
+
+    /**
+     * Add an app to the blacklist.
+     */
+    fun blacklistApp(packageName: String) {
+        if (CORE_SYSTEM_WHITELIST.contains(packageName)) {
+            Log.w(TAG, "Cannot blacklist CORE system app: $packageName")
+            return
+        }
+        blacklistedApps.add(packageName)
+        saveBlacklist()
+    }
+
+    /**
+     * Remove an app from the blacklist.
+     */
+    fun whitelistApp(packageName: String) {
+        blacklistedApps.remove(packageName)
+        saveBlacklist()
+    }
+
+    fun isBlockingEnabled(): Boolean = true
+
+    /**
+     * Get all installed apps with their blacklist status.
+     */
+    fun getInstalledApps(): List<AppInfo> {
+        val pm = context.packageManager
+        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+
+        return apps.filter { app ->
+            // Only show apps with a launcher icon (user-facing apps)
+            pm.getLaunchIntentForPackage(app.packageName) != null
+        }.map { app ->
+            AppInfo(
+                packageName = app.packageName,
+                appName = pm.getApplicationLabel(app).toString(),
+                isBlacklisted = blacklistedApps.contains(app.packageName),
+                isSystemProtected = isSystemProtected(app.packageName)
+            )
+        }.sortedWith(compareByDescending<AppInfo> { it.isBlacklisted }.thenBy { it.appName })
+    }
+
+    /**
+     * Get the count of blacklisted apps.
+     */
+    fun getBlacklistedCount(): Int = blacklistedApps.size
+
+    /**
+     * Reset blacklist to defaults.
+     */
+    fun resetToDefaults() {
+        blacklistedApps.clear()
+        blacklistedApps.addAll(DEFAULT_BLACKLIST)
+        saveBlacklist()
+    }
+
+    private fun saveBlacklist() {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(KEY_BLACKLISTED_APPS, HashSet(blacklistedApps)) // Defensive copy
+            .apply()
+
+        // Invalidate the accessibility service cache so changes take effect immediately
+        AppBlockManager.invalidateCache()
+
+        // Push settings to cloud whenever blacklist is updated
+        SettingsSyncManager(context).pushSettings()
+    }
+}

@@ -252,6 +252,43 @@ app.post('/api/feedback', async (c) => {
       timestamp || Date.now()
     ).run();
 
+    // 📧 Send an instant email to the parent via Resend (free tier).
+    // Non-blocking best-effort: if email fails, feedback is still safely stored in D1.
+    try {
+      const resendKey = c.env.RESEND_API_KEY;
+      const notifyTo = c.env.FEEDBACK_EMAIL || 'eanidger@gmail.com';
+      if (resendKey) {
+        const safe = (s: string) => (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const emailHtml = `
+          <div dir="rtl" style="font-family:Arial,sans-serif;text-align:right">
+            <h2>📝 פידבק חדש ב-KiddoLock</h2>
+            <p><b>קטגוריה:</b> ${safe(category || 'כללי')}</p>
+            <p><b>דירוג:</b> ${rating || '-'}</p>
+            <p><b>גרסה:</b> ${safe(appVersion || '?')}</p>
+            <p><b>מכשיר:</b> ${safe(device || '?')} (Android ${safe(android || '?')})</p>
+            <hr/>
+            <p style="font-size:16px;white-space:pre-wrap">${safe(text)}</p>
+            <hr/>
+            <p style="color:#888;font-size:12px">דאשבורד מלא: https://kiddolock-api.eanidger.workers.dev/admin/feedback?key=eitan_kiddo_master_2026</p>
+          </div>`;
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'KiddoLock <onboarding@resend.dev>',
+            to: [notifyTo],
+            subject: `📝 פידבק חדש ב-KiddoLock (${category || 'כללי'})`,
+            html: emailHtml
+          })
+        });
+      }
+    } catch (mailErr) {
+      console.log('Resend email failed (feedback still saved):', mailErr);
+    }
+
     return c.json({ ok: true, message: 'Feedback received - thanks!' });
   } catch (e: any) {
     return c.json({ error: e.message }, 500);

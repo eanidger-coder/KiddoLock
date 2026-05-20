@@ -269,6 +269,10 @@ class AdminPinActivity : AppCompatActivity() {
         runOnUiThread {
             when (result) {
                 is AdminPinManager.PinResult.Success -> {
+                    // v1.5.57: open a 3-minute authenticated window so the parent isn't
+                    // re-prompted for PIN on every admin screen during the same sitting.
+                    AdminPinManager.extendSession()
+                    AdminActivity.isSessionAuthorized = true
                     // Check if we were sent here for an emergency action
                     when (intent.action) {
                         "com.kiddolock.app.EMERGENCY_NEUTRALIZE" -> {

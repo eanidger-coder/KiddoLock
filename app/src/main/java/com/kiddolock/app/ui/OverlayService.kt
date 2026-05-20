@@ -523,3 +523,84 @@ class OverlayService : Service() {
         if (warningView != null) return
 
         val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            else
+                WindowManager.LayoutParams.TYPE_PHONE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP
+            y = 50 // Offset from top
+        }
+
+        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        warningView = inflater.inflate(R.layout.overlay_warning, null)
+        
+        warningView?.findViewById<View>(R.id.btnDismissWarning)?.setOnClickListener {
+            hideWarning()
+        }
+
+        // Set remaining time text
+        val remaining = com.kiddolock.app.services.TimeScheduler(this).getRemainingMinutes()
+        warningView?.findViewById<TextView>(R.id.tvRemainingTime)?.text = "נשארו כ-$remaining דקות לסיום."
+
+        try {
+            windowManager?.addView(warningView, params)
+            // Slide in animation
+            warningView?.translationY = -200f
+            warningView?.animate()?.translationY(0f)?.setDuration(500)?.start()
+        } catch (e: Exception) {
+            Log.e("OverlayService", "Error adding warning view", e)
+            warningView = null
+        }
+    }
+
+    private fun hideWarning() {
+        warningView?.let {
+            try {
+                // Slide out animation
+                it.animate().translationY(-300f).setDuration(500).withEndAction {
+                    try {
+                        windowManager?.removeView(it)
+                    } catch (e: Exception) {
+                        Log.e("OverlayService", "Error removing warning view in callback", e)
+                    }
+                }.start()
+            } catch (e: Exception) {
+                Log.e("OverlayService", "Error animating warning view out", e)
+                windowManager?.removeView(it)
+            }
+            warningView = null
+        }
+    }
+
+    fun hide() {
+        // SAFETY: cancel pending auto-hide whenever we hide manually
+        safetyHandler.removeCallbacks(autoHideRunnable)
+        hideWarning() // Hide warning too if we block
+        overlayView?.let {
+            try {
+                windowManager?.removeView(it)
+                Log.i("OverlayService", "Overlay HIDDEN for $currentPackage")
+            } catch (e: Exception) {
+                Log.e("OverlayService", "Error removing overlay view", e)
+            }
+            overlayView = null
+            currentPackage = null // Clear state immediately
+            pinBuffer = ""
+            isEmergencyAction = false
+        }
+        // SAFETY: always clear the global flag — even if overlayView was already null
+        isOverlayCurrentlyShown = false
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        hide()
+    }
+}

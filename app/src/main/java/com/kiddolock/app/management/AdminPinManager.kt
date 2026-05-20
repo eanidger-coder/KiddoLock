@@ -89,9 +89,12 @@ object AdminPinManager {
 
     /**
      * Extends the current authenticated session.
+     * v1.5.57: 3-minute window after a correct PIN so the parent isn't asked again
+     * for every screen (Admin, App Management, etc.) within the same sitting. Short
+     * enough that if a child grabs the phone minutes later, protection re-locks.
      */
     fun extendSession() {
-        authenticatedUntil = Long.MAX_VALUE // Session is valid for the current foreground run
+        authenticatedUntil = System.currentTimeMillis() + (3 * 60 * 1000L)
     }
 
     /**
