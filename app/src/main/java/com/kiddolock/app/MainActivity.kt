@@ -41,6 +41,28 @@ class MainActivity : AppCompatActivity() {
     private var cachedBlockedCount: Int = -1
     private var lastBlockedCountRefreshMs: Long = 0L
 
+    // Feedback screenshot attachment (v1.5.58): holds the chosen image as base64 JPEG.
+    private var pendingScreenshotB64: String? = null
+    private var feedbackPhotoBtn: android.widget.Button? = null
+    private val pickFeedbackImage = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val b64 = compressImageToBase64(uri)
+                if (b64 != null) {
+                    pendingScreenshotB64 = b64
+                    feedbackPhotoBtn?.text = "✅ צילום מסך צורף"
+                    Toast.makeText(this, "צילום מסך צורף לפידבק", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "לא הצלחתי לקרוא את התמונה", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Throwable) {
+                Toast.makeText(this, "שגיאה בצירוף תמונה: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -92,6 +114,34 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, AdminPinActivity::class.java))
         } else if (!AdminPinManager.isAuthenticated()) {
             startActivity(Intent(this, AdminPinActivity::class.java))
+        }
+
+        // OTA update check (v1.5.58): only when the parent is using the phone (Kids Mode OFF),
+        // so the child never sees an update prompt. Throttled to once per 6h inside the checker.
+        try {
+            if (!KidsModeManager(this).isEnabled) {
+                com.kiddolock.app.utils.UpdateChecker.checkForUpdate(this) { info ->
+                    promptUpdate(info)
+                }
+            }
+        } catch (e: Throwable) {
+            android.util.Log.w("MainActivity", "Update check failed: ${e.message}")
+        }
+    }
+
+    private fun promptUpdate(info: com.kiddolock.app.utils.UpdateChecker.UpdateInfo) {
+        try {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("🔔 עדכון זמין ל-KiddoLock")
+                .setMessage("גרסה חדשה ${info.versionName} זמינה.\n\nמה חדש:\n${info.changelog}\n\nלהוריד ולהתקין עכשיו?")
+                .setPositiveButton("עדכן עכשיו") { _, _ ->
+                    com.kiddolock.app.utils.UpdateChecker.downloadAndInstall(this, info.apkUrl)
+                }
+                .setNegativeButton("אחר כך", null)
+                .setCancelable(!info.mandatory)
+                .show()
+        } catch (e: Throwable) {
+            android.util.Log.w("MainActivity", "promptUpdate failed: ${e.message}")
         }
     }
 
@@ -334,6 +384,8 @@ class MainActivity : AppCompatActivity() {
      * so the developer can debug without asking the parent to dig through logcat.
      */
     private fun openFeedbackDialog() {
+        // Reset any previously-attached screenshot each time the dialog opens
+        pendingScreenshotB64 = null
         val container = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             val pad = (16 * resources.displayMetrics.density).toInt()
@@ -349,8 +401,17 @@ class MainActivity : AppCompatActivity() {
             gravity = android.view.Gravity.TOP or android.view.Gravity.START
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
         }
+        val btnPhoto = android.widget.Button(this).apply {
+            text = "📷 צרף צילום מסך (לא חובה)"
+            setOnClickListener {
+                try { pickFeedbackImage.launch("image/*") }
+                catch (e: Throwable) { Toast.makeText(this@MainActivity, "לא ניתן לפתוח גלריה", Toast.LENGTH_SHORT).show() }
+            }
+        }
+        feedbackPhotoBtn = btnPhoto
         container.addView(tvInfo)
         container.addView(etInput)
+        container.addView(btnPhoto)
 
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("📝 שלח פידבק")
@@ -361,12 +422,49 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "ריק - לא נשלח", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-                com.kiddolock.app.utils.FeedbackManager.sendFeedback(this, txt) { _, msg ->
+                com.kiddolock.app.utils.FeedbackManager.sendFeedback(
+                    this, txt, screenshotBase64 = pendingScreenshotB64
+                ) { _, msg ->
                     Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
                 }
+                pendingScreenshotB64 = null
             }
             .setNegativeButton("ביטול", null)
             .show()
+    }
+
+    /**
+     * Read an image from a content URI, downscale + compress to JPEG, return base64.
+     * Capped so the payload stays well under the D1 row limit (~1MB).
+     */
+    private fun compressImageToBase64(uri: android.net.Uri): String? {
+        return try {
+            val input = contentResolver.openInputStream(uri) ?: return null
+            val original = android.graphics.BitmapFactory.decodeStream(input)
+            input.close()
+            if (original == null) return null
+            // Downscale so the longest edge is at most 1000px
+            val maxEdge = 1000
+            val scale = minOf(1f, maxEdge.toFloat() / maxOf(original.width, original.height))
+            val scaled = if (scale < 1f) {
+                android.graphics.Bitmap.createScaledBitmap(
+                    original, (original.width * scale).toInt(), (original.height * scale).toInt(), true
+                )
+            } else original
+            val baos = java.io.ByteArrayOutputStream()
+            scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 55, baos)
+            val bytes = baos.toByteArray()
+            // If still too big, recompress harder
+            val finalBytes = if (bytes.size > 900_000) {
+                val b2 = java.io.ByteArrayOutputStream()
+                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 35, b2)
+                b2.toByteArray()
+            } else bytes
+            "data:image/jpeg;base64," + android.util.Base64.encodeToString(finalBytes, android.util.Base64.NO_WRAP)
+        } catch (e: Throwable) {
+            android.util.Log.w("MainActivity", "compressImageToBase64 failed: ${e.message}")
+            null
+        }
     }
 
     private fun snoozeBedtimeWithConfirm() {
@@ -427,4 +525,88 @@ class MainActivity : AppCompatActivity() {
                         if (isFinishing || isDestroyed) return@addListener
                         androidx.appcompat.app.AlertDialog.Builder(this)
                             .setTitle("הגנה חשובה - לאשר פעם אחת")
-                            .setMessage("אנדרואיד עלולה לבטל את ההרשאות של KiddoLock אם לא תפעיל א
+                            .setMessage("אנדרואיד עלולה לבטל את ההרשאות של KiddoLock אם לא תפעיל את האפליקציה במשך 3 חודשים. כדי שההגנה על הילדים לא תיפסק לבד, אישור חד-פעמי חיוני. לחיצה על 'אשר' תעביר אותך להגדרה ב-Settings - שם הזז את 'הסר הרשאות אם האפליקציה לא בשימוש' לכבוי.")
+                            .setPositiveButton("אשר") { _, _ ->
+                                // FIX: save flag BEFORE startActivity so we don't re-prompt on return
+                                prefs.edit().putBoolean("unused_app_prompted", true).commit()
+                                try {
+                                    val intent = androidx.core.content.IntentCompat.createManageUnusedAppRestrictionsIntent(this, packageName)
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.util.Log.w("MainActivity", "Could not open unused-app settings: " + e.message)
+                                }
+                            }
+                            .setNegativeButton("לא עכשיו") { _, _ ->
+                                prefs.edit().putBoolean("unused_app_prompted", true).commit()
+                            }
+                            .setOnDismissListener {
+                                // Belt-and-suspenders: if user dismisses by back button, still mark as prompted
+                                prefs.edit().putBoolean("unused_app_prompted", true).commit()
+                            }
+                            .setCancelable(true)
+                            .show()
+                    } else {
+                        // Already disabled or feature not available - record so we don't ask again
+                        prefs.edit().putBoolean("unused_app_prompted", true).apply()
+                    }
+                } catch (e: Throwable) {
+                    android.util.Log.w("MainActivity", "getUnusedAppRestrictionsStatus failed: " + e.message)
+                }
+            }, ContextCompat.getMainExecutor(this))
+        } catch (e: Throwable) {
+            android.util.Log.w("MainActivity", "PackageManagerCompat unavailable: " + e.message)
+        }
+    }
+
+
+    /**
+     * 🚨 פרצת אבטחה תוקנה: כשמשתמש יוצא מהאפליקציה (כפתור בית, multi-tasking, אפליקציה אחרת),
+     * נמחק את ה-session ויידרש PIN שוב בחזרה לאפליקציה.
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        AdminPinManager.clearSession()
+    }
+
+    // ⏱️ Live ticker: updates the timer every second while MainActivity is visible
+    private val timeUpdateHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val timeUpdateRunnable = object : Runnable {
+        override fun run() {
+            // CRITICAL (fix CRIT-2 black screen): never touch UI if activity is finishing/destroyed.
+            // The previous code allowed updateStatus to run on a dying activity, which led to
+            // stale view references that the renderer painted as black after ~10 min of background.
+            if (isFinishing || isDestroyed) {
+                timeUpdateHandler.removeCallbacks(this)
+                return
+            }
+            try { updateStatus() } catch (e: Exception) {
+                android.util.Log.w("MainActivity", "Ticker updateStatus failed: ${e.message}")
+            }
+            timeUpdateHandler.postDelayed(this, 10000)
+        }
+    }
+    private fun startTickerIfNeeded() {
+        timeUpdateHandler.removeCallbacks(timeUpdateRunnable)
+        // Update every 10 seconds (timer only changes per minute, but 10s gives smooth experience)
+        timeUpdateHandler.postDelayed(timeUpdateRunnable, 10000)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        timeUpdateHandler.removeCallbacks(timeUpdateRunnable)
+    }
+
+    override fun onDestroy() {
+        // CRITICAL (fix CRIT-2): ensure all background work is cleaned up so the activity
+        // can be re-created cleanly without leaving zombie handlers behind.
+        timeUpdateHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+    private fun wireHelpIcons() {
+        val helpKids = findViewById<android.view.View?>(R.id.btnHelpKidsMode)
+        if (helpKids != null) {
+            HelpTooltips.attach(helpKids, HelpTooltips.HelpTopic.PROTECTION_STATUS)
+        }
+    }
+
+}

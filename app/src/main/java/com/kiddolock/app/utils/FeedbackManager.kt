@@ -23,6 +23,66 @@ object FeedbackManager {
         .connectTimeout(15, TimeUnit.SECONDS)
         .build()
 
+    // Auto-report throttle: don't send the same auto-report reason more than once per 10 min,
+    // so a runaway loop can't flood the server or the parent's inbox.
+    private val lastAutoReportMs = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private const val AUTO_REPORT_THROTTLE_MS = 10 * 60 * 1000L
+
+    /**
+     * Fire-and-forget AUTOMATIC crash/incident report. Called by the app itself when it
+     * detects a problem (circuit breaker tripped, overlay failed, exception, self-suspend).
+     * Fully defensive: wrapped so it can NEVER crash the caller. Throttled per-reason.
+     */
+    fun sendAutoReport(context: Context, reason: String, detail: String = "") {
+        try {
+            val now = System.currentTimeMillis()
+            val last = lastAutoReportMs[reason] ?: 0L
+            if (now - last < AUTO_REPORT_THROTTLE_MS) {
+                Log.v(TAG, "Auto-report '$reason' throttled")
+                return
+            }
+            lastAutoReportMs[reason] = now
+
+            Thread {
+                try {
+                    val deviceId = try { DeviceIdentifier.getPersistentId(context) } catch (_: Throwable) { "anon" }
+                    val appVersion = try { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" } catch (_: Throwable) { "?" }
+                    val logs = captureRecentLogs()
+                    val stateInfo = try {
+                        val scheduler = com.kiddolock.app.services.TimeScheduler(context)
+                        val cfg = scheduler.getConfig()
+                        val kidsOn = com.kiddolock.app.management.KidsModeManager(context).isEnabled
+                        "KidsMode=$kidsOn | BedtimeActive=${scheduler.isBedtimeActive()} | LimitReached=${scheduler.isDailyLimitReached()} | UsageToday=${scheduler.getTodayUsageMinutes()}min"
+                    } catch (_: Throwable) { "" }
+
+                    val payload = JSONObject().apply {
+                        put("deviceId", deviceId)
+                        put("text", if (detail.isBlank()) reason else "$reason\n\n$detail")
+                        put("category", "auto_crash")
+                        put("isAutoReport", true)
+                        put("appVersion", appVersion)
+                        put("device", "${Build.MANUFACTURER} ${Build.MODEL}")
+                        put("android", Build.VERSION.RELEASE)
+                        put("timestamp", System.currentTimeMillis())
+                        put("appState", stateInfo)
+                        put("recentLogs", logs)
+                    }
+                    val body = payload.toString().toRequestBody("application/json".toMediaType())
+                    val request = Request.Builder().url("${ApiConfig.BASE_URL}/api/feedback").post(body).build()
+                    client.newCall(request).execute().use { resp ->
+                        if (resp.isSuccessful) Log.i(TAG, "Auto-report '$reason' sent")
+                        else { saveOffline(context, payload); Log.w(TAG, "Auto-report failed (saved offline)") }
+                    }
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Auto-report thread failed: ${e.message}")
+                }
+            }.start()
+        } catch (e: Throwable) {
+            // Absolutely never let auto-reporting crash the app
+            Log.w(TAG, "sendAutoReport outer guard caught: ${e.message}")
+        }
+    }
+
     /**
      * Send feedback async (fire-and-forget). UI callback delivers success/failure.
      */
@@ -32,6 +92,7 @@ object FeedbackManager {
         category: String = "general",
         rating: Int = 0,
         includeLogs: Boolean = true,
+        screenshotBase64: String? = null,
         onDone: (success: Boolean, message: String) -> Unit
     ) {
         Thread {
@@ -60,6 +121,7 @@ object FeedbackManager {
                     put("timestamp", System.currentTimeMillis())
                     put("appState", stateInfo)
                     if (includeLogs) put("recentLogs", recentLogs)
+                    if (!screenshotBase64.isNullOrBlank()) put("screenshot", screenshotBase64)
                 }
 
                 val body = payload.toString().toRequestBody("application/json".toMediaType())
@@ -93,86 +155,4 @@ object FeedbackManager {
                         put("timestamp", System.currentTimeMillis())
                     }
                     saveOffline(context, payload)
-                } catch (_: Throwable) {}
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    onDone(true, "המשוב נשמר ויישלח כשתהיה רשת")
-                }
-            }
-        }.start()
-    }
-
-    /** Save feedback locally for retry later */
-    private fun saveOffline(context: Context, payload: JSONObject) {
-        val prefs = context.getSharedPreferences("kiddolock_feedback", Context.MODE_PRIVATE)
-        val pending = prefs.getString("pending", "[]") ?: "[]"
-        try {
-            val arr = org.json.JSONArray(pending)
-            arr.put(payload)
-            prefs.edit().putString("pending", arr.toString()).apply()
-            Log.i(TAG, "Feedback stored offline (${arr.length()} pending)")
-        } catch (e: Throwable) {
-            Log.e(TAG, "Could not save offline feedback", e)
-        }
-    }
-
-    /**
-     * Capture the last N KiddoLock-tagged log lines.
-     * Note: Android 4.1+ requires READ_LOGS or being a system app to read logcat of OTHER apps.
-     * For our OWN app's logs, this works without any permission.
-     */
-    private fun captureRecentLogs(maxLines: Int = 80): String {
-        return try {
-            val process = ProcessBuilder("logcat", "-d", "-t", maxLines.toString(),
-                "AppBlockManager:V",
-                "AccessibilityService:V",
-                "OverlayService:V",
-                "AdminPinManager:V",
-                "TimeScheduler:V",
-                "KiddoLockApp:V",
-                "SafetyWatchdog:V",
-                "KidsModeManager:V",
-                "AndroidRuntime:E",
-                "*:S"
-            ).redirectErrorStream(true).start()
-            val output = process.inputStream.bufferedReader().readText()
-            process.waitFor()
-            // Truncate if too long (Cloudflare worker limit)
-            if (output.length > 8000) output.substring(output.length - 8000) else output
-        } catch (e: Throwable) {
-            Log.w(TAG, "Could not capture logs: " + e.message)
-            "log capture failed: ${e.message}"
-        }
-    }
-
-    /** Try to flush pending offline feedback. Called on app start. */
-    fun flushPending(context: Context) {
-        Thread {
-            try {
-                val prefs = context.getSharedPreferences("kiddolock_feedback", Context.MODE_PRIVATE)
-                val pending = prefs.getString("pending", "[]") ?: "[]"
-                val arr = org.json.JSONArray(pending)
-                if (arr.length() == 0) return@Thread
-
-                var sent = 0
-                val remaining = org.json.JSONArray()
-                for (i in 0 until arr.length()) {
-                    val item = arr.getJSONObject(i)
-                    val body = item.toString().toRequestBody("application/json".toMediaType())
-                    val request = Request.Builder()
-                        .url("${ApiConfig.BASE_URL}/api/feedback")
-                        .post(body)
-                        .build()
-                    try {
-                        client.newCall(request).execute().use { response ->
-                            if (response.isSuccessful) sent++ else remaining.put(item)
-                        }
-                    } catch (_: Throwable) { remaining.put(item) }
-                }
-                prefs.edit().putString("pending", remaining.toString()).apply()
-                Log.i(TAG, "Flushed $sent / ${arr.length()} pending feedback items")
-            } catch (e: Throwable) {
-                Log.w(TAG, "flushPending failed: " + e.message)
-            }
-        }.start()
-    }
-}
+                } catch (_: Throwabl

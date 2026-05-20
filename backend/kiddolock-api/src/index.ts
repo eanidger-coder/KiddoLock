@@ -39,8 +39,8 @@ async function verifySignature(
 const signatureMiddleware = async (c: any, next: any) => {
   const path = new URL(c.req.url).pathname;
 
-  // Feedback endpoint is exempt - parents shouldn't need HMAC to send feedback
-  if (path === '/api/feedback') {
+  // Feedback + OTA version check are exempt - no HMAC needed (parent-facing, read-only/safe)
+  if (path === '/api/feedback' || path === '/api/latest-version') {
     return await next();
   }
 
@@ -211,7 +211,7 @@ app.post('/api/command', async (c) => {
 app.post('/api/feedback', async (c) => {
   try {
     const body = await c.req.json();
-    const { deviceId, text, category, rating, appVersion, device, android, timestamp, appState, recentLogs } = body;
+    const { deviceId, text, category, rating, appVersion, device, android, timestamp, appState, recentLogs, screenshot, isAutoReport } = body;
 
     if (!text || text.length < 2) {
       return c.json({ error: 'Empty feedback text' }, 400);
@@ -235,10 +235,17 @@ app.post('/api/feedback', async (c) => {
       )`
     ).run();
 
+    // Migration: add screenshot + auto_report columns if they don't exist (idempotent, ignore errors)
+    try { await c.env.DB.prepare(`ALTER TABLE feedback ADD COLUMN screenshot TEXT`).run(); } catch (_) {}
+    try { await c.env.DB.prepare(`ALTER TABLE feedback ADD COLUMN is_auto_report INTEGER DEFAULT 0`).run(); } catch (_) {}
+
+    // Screenshot guard: cap base64 at ~1.2MB so a huge image can't blow the D1 row limit.
+    const safeScreenshot = (screenshot && screenshot.length < 1_200_000) ? screenshot : null;
+
     await c.env.DB.prepare(
       `INSERT INTO feedback
-        (device_id, text, category, rating, app_version, device_info, android_version, app_state, recent_logs, client_timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (device_id, text, category, rating, app_version, device_info, android_version, app_state, recent_logs, client_timestamp, screenshot, is_auto_report)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       deviceId || 'anon',
       text,
@@ -249,7 +256,9 @@ app.post('/api/feedback', async (c) => {
       android || '?',
       appState || '',
       (recentLogs || '').substring(0, 16000),
-      timestamp || Date.now()
+      timestamp || Date.now(),
+      safeScreenshot,
+      isAutoReport ? 1 : 0
     ).run();
 
     // 📧 Send an instant email to the parent via Resend (free tier).
@@ -259,15 +268,27 @@ app.post('/api/feedback', async (c) => {
       const notifyTo = c.env.FEEDBACK_EMAIL || 'eanidger@gmail.com';
       if (resendKey) {
         const safe = (s: string) => (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const headline = isAutoReport ? '🚨 דיווח אוטומטי על תקלה ב-KiddoLock' : '📝 פידבק חדש ב-KiddoLock';
+        const subject = isAutoReport
+          ? `🚨 דיווח אוטומטי: ${category || 'תקלה'} - KiddoLock`
+          : `📝 פידבק חדש ב-KiddoLock (${category || 'כללי'})`;
+        const logsBlock = recentLogs
+          ? `<hr/><p><b>לוגים אחרונים:</b></p><pre style="background:#f4f4f4;padding:8px;font-size:11px;direction:ltr;text-align:left;overflow:auto;max-height:300px">${safe((recentLogs || '').substring(0, 6000))}</pre>`
+          : '';
+        const shotBlock = safeScreenshot
+          ? `<hr/><p><b>צילום מסך:</b></p><img src="${safeScreenshot.startsWith('data:') ? safeScreenshot : 'data:image/jpeg;base64,' + safeScreenshot}" style="max-width:300px;border:1px solid #ccc"/>`
+          : '';
         const emailHtml = `
           <div dir="rtl" style="font-family:Arial,sans-serif;text-align:right">
-            <h2>📝 פידבק חדש ב-KiddoLock</h2>
+            <h2 style="color:${isAutoReport ? '#d32f2f' : '#333'}">${headline}</h2>
             <p><b>קטגוריה:</b> ${safe(category || 'כללי')}</p>
-            <p><b>דירוג:</b> ${rating || '-'}</p>
+            ${isAutoReport ? '' : `<p><b>דירוג:</b> ${rating || '-'}</p>`}
             <p><b>גרסה:</b> ${safe(appVersion || '?')}</p>
             <p><b>מכשיר:</b> ${safe(device || '?')} (Android ${safe(android || '?')})</p>
             <hr/>
             <p style="font-size:16px;white-space:pre-wrap">${safe(text)}</p>
+            ${shotBlock}
+            ${logsBlock}
             <hr/>
             <p style="color:#888;font-size:12px">דאשבורד מלא: https://kiddolock-api.eanidger.workers.dev/admin/feedback?key=eitan_kiddo_master_2026</p>
           </div>`;
@@ -280,7 +301,7 @@ app.post('/api/feedback', async (c) => {
           body: JSON.stringify({
             from: 'KiddoLock <onboarding@resend.dev>',
             to: [notifyTo],
-            subject: `📝 פידבק חדש ב-KiddoLock (${category || 'כללי'})`,
+            subject: subject,
             html: emailHtml
           })
         });
@@ -293,6 +314,26 @@ app.post('/api/feedback', async (c) => {
   } catch (e: any) {
     return c.json({ error: e.message }, 500);
   }
+});
+
+// ============================================
+// 🔄 OTA UPDATE CHECK
+// ============================================
+// The app polls this to learn whether a newer APK is available. APKs are hosted on
+// GitHub Releases (free). Update LATEST_* whenever a new release is published.
+const LATEST_VERSION_NAME = '1.5.58';
+const LATEST_VERSION_CODE = 68;
+const LATEST_APK_URL = 'https://github.com/eanidger-coder/KiddoLock/releases/download/v1.5.58/KiddoLock-v1.5.58.apk';
+const LATEST_CHANGELOG = 'תיקון אמינות הפעלה מחדש, דיווח אוטומטי על תקלות, צילום מסך בפידבק, ועדכון אוטומטי.';
+
+app.get('/api/latest-version', (c) => {
+  return c.json({
+    versionName: LATEST_VERSION_NAME,
+    versionCode: LATEST_VERSION_CODE,
+    apkUrl: LATEST_APK_URL,
+    changelog: LATEST_CHANGELOG,
+    mandatory: false
+  });
 });
 
 
@@ -323,7 +364,7 @@ app.get('/admin/feedback', async (c) => {
   const auth = checkAdmin(c); if (auth) return auth;
   try {
     const res = await c.env.DB.prepare(
-      `SELECT id, device_id, text, category, rating, app_version, device_info, android_version, app_state, recent_logs, received_at
+      `SELECT id, device_id, text, category, rating, app_version, device_info, android_version, app_state, recent_logs, received_at, screenshot, is_auto_report
        FROM feedback ORDER BY id DESC LIMIT 200`
     ).all();
     const rows = res.results || [];
@@ -344,10 +385,11 @@ app.get('/admin/feedback', async (c) => {
       <h1>📝 פידבק מהורים (${rows.length} סה"כ)</h1>
       ${rows.length === 0 ? '<div class="empty">עדיין אין פידבק</div>' :
         rows.map((r: any) => `
-          <div class="item">
-            <div class="meta">#${r.id} | ${r.received_at} | v${r.app_version} | ${r.device_info} | Android ${r.android_version}</div>
+          <div class="item" style="border-right-color:${r.is_auto_report ? '#FF4757' : '#00E5FF'}">
+            <div class="meta">${r.is_auto_report ? '🚨 דיווח אוטומטי | ' : ''}#${r.id} | ${r.received_at} | v${r.app_version} | ${r.device_info} | Android ${r.android_version} | <b style="color:#FFD600">${(r.category || '').replace(/</g, '&lt;')}</b></div>
             <div class="text">${(r.text || '').replace(/</g, '&lt;')}</div>
             <div class="state">${(r.app_state || '').replace(/</g, '&lt;')}</div>
+            ${r.screenshot ? `<details><summary>📷 צילום מסך</summary><img src="${(r.screenshot || '').startsWith('data:') ? r.screenshot : 'data:image/jpeg;base64,' + r.screenshot}" style="max-width:280px;border:1px solid #444;border-radius:6px;margin-top:8px"/></details>` : ''}
             ${r.recent_logs ? `<details><summary>📋 לוגים אחרונים</summary><pre>${(r.recent_logs || '').replace(/</g, '&lt;')}</pre></details>` : ''}
           </div>
         `).join('')
@@ -506,53 +548,4 @@ app.get('/admin/kill-device/:id', async (c) => {
 app.get('/admin/disable-kids/:id', async (c) => {
   const auth = checkAdmin(c); if (auth) return auth;
   await queueCommand(c, c.req.param('id'), 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disable Kids Mode queued. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-app.get('/admin/uninstall/:id', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  await queueCommand(c, c.req.param('id'), 'EMERGENCY_KILL_SWITCH');
-  await queueCommand(c, c.req.param('id'), 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Uninstall sequence queued. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-
-// All-devices commands
-app.get('/admin/kill-all', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  const n = await queueCommand(c, null, 'EMERGENCY_KILL_SWITCH');
-  const fresh: any = await c.env.DB.prepare(
-    `SELECT COUNT(*) as cnt FROM devices WHERE last_heartbeat >= datetime('now','-30 minutes')`
-  ).first();
-  const freshCnt = fresh?.cnt || 0;
-  return c.html(`<div style="padding:30px;background:#0d0b1a;color:#fff;font-family:Arial;direction:rtl">
-    <h2 style="color:#0f0">✅ KILL ALL נשלח ל-${n} מכשירים</h2>
-    <div style="background:${freshCnt > 0 ? '#00c853' : '#FFA502'};padding:10px;border-radius:6px;margin:15px 0">
-      ${freshCnt > 0 
-        ? `✅ ${freshCnt} מכשירים פעילים בחצי שעה האחרונה - יקבלו את הפקודה תוך 15 דקות.`
-        : '⚠️ אין מכשירים פעילים כעת. הפקודות ממתינות בתור ויתבצעו ברגע שמכשיר יחזור לאינטרנט.'}
-    </div>
-    <p style="margin-top:20px"><a href="/admin?key=${ADMIN_KEY}" style="background:#00e5ff;color:#0d0b1a;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">חזור לדשבורד</a></p>
-  </div>`);
-});
-app.get('/admin/disable-kids-all', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  const n = await queueCommand(c, null, 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disable Kids Mode queued for ${n} devices. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-app.get('/admin/uninstall-all', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  await queueCommand(c, null, 'EMERGENCY_KILL_SWITCH');
-  const n = await queueCommand(c, null, 'DISABLE_PROTECTION');
-  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Uninstall sequence queued for ${n} devices. <a href="/admin?key=${ADMIN_KEY}" style="color:#00e5ff">חזור</a></p>`);
-});
-
-// Quick health endpoint that returns whether there are pending kill commands - useful for emergency status
-app.get('/admin/status', async (c) => {
-  const auth = checkAdmin(c); if (auth) return auth;
-  const { results } = await c.env.DB.prepare(
-    `SELECT command_type, COUNT(*) as n FROM commands WHERE status='pending' GROUP BY command_type`
-  ).all();
-  return c.json({ pending: results });
-});
-
-
-export default app;
+  return c.html(`<p style="font-family:Arial;padding:20px;background:#0d0b1a;color:#0f0">✅ Disa

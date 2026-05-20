@@ -27,7 +27,16 @@ class KiddoLockApp : Application() {
         // If a previous run hit the safety threshold, alert the parent and reset the flag
         try {
             if (SafetyWatchdog.wasAutoDisabledRecently(this)) {
-                showAutoDisableNotification(this, SafetyWatchdog.getLastCrashMessage(this) ?: "תקלה לא ידועה")
+                val crashMsg = SafetyWatchdog.getLastCrashMessage(this) ?: "תקלה לא ידועה"
+                showAutoDisableNotification(this, crashMsg)
+                // AUTO-REPORT to developer: the watchdog disabled protection after repeated crashes.
+                try {
+                    com.kiddolock.app.utils.FeedbackManager.sendAutoReport(
+                        this,
+                        "🚨 ההגנה בוטלה אוטומטית אחרי קריסות חוזרות",
+                        "SafetyWatchdog זיהה קריסות חוזרות וכיבה את ההגנה. הסיבה האחרונה: $crashMsg"
+                    )
+                } catch (_: Throwable) {}
                 SafetyWatchdog.clearAutoDisabledFlag(this)
             }
             SafetyWatchdog.considerResetingOnHealthyLaunch(this)

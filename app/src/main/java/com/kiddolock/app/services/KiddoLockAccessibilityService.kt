@@ -462,6 +462,14 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                     // user is not trapped in silent app-closing loop. OverlayService already
                     // showed a fallback Toast naming the blocked app.
                     Log.w(TAG, "Overlay did NOT render for $packageName — skipping HOME (safety)")
+                    // AUTO-REPORT: overlay failure is exactly the driving-incident signature.
+                    try {
+                        com.kiddolock.app.utils.FeedbackManager.sendAutoReport(
+                            this,
+                            "⚠️ מסך החסימה לא הוצג",
+                            "ניסיון לחסום את $packageName נכשל - ה-overlay לא עלה (ייתכן חוסר הרשאה או לחץ זיכרון). HOME לא בוצע למען הבטיחות."
+                        )
+                    } catch (_: Throwable) {}
                 }
             }, 250L)  // 250ms gives OverlayService time to call addView synchronously on main thread
         }
@@ -496,6 +504,14 @@ class KiddoLockAccessibilityService : AccessibilityService() {
      */
     private fun triggerEmergencySuspend() {
         try {
+            // AUTO-REPORT: tell the developer immediately that the circuit breaker tripped.
+            try {
+                com.kiddolock.app.utils.FeedbackManager.sendAutoReport(
+                    this,
+                    "🚨 Circuit Breaker הופעל - ההגנה השעתה את עצמה",
+                    "יותר מ-$CIRCUIT_BREAKER_MAX_BLOCKS אפליקציות נחסמו ב-30 שניות. ההגנה הושהתה ל-15 דקות אוטומטית להגנה על המשתמש."
+                )
+            } catch (_: Throwable) {}
             // 1. Turn Kids Mode off so per-app blocking stops
             KidsModeManager(this).isEnabled = false
             // 2. Clear all pending temporary unlocks and bypasses
@@ -546,31 +562,4 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
         serviceInfo = serviceInfo?.apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-                         AccessibilityEvent.TYPE_WINDOWS_CHANGED
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 100
-            flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-                handler.postDelayed(notificationRefreshRunnable, 5000)
-    } ?: serviceInfo
-
-        // Start periodic check
-        handler.postDelayed(periodicCheckRunnable, 12000)
-
-        // Start foreground
-        try {
-            val notification = NotificationUtils.buildNotification(this, true)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                startForeground(
-                    NotificationUtils.KIDDO_NOTIFICATION_ID, 
-                    notification,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                )
-            } else {
-                startForeground(NotificationUtils.KIDDO_NOTIFICATION_ID, notification)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start foreground", e)
-        }
-    }
-}
+                         Accessibi
