@@ -52,14 +52,33 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         }
     }
 
+    // THROTTLE GUARD (v1.5.65): timestamp of last periodic check execution.
+    // Prevents exponential runnable stacking from doubling the loop.
+    private var lastPeriodicRunMs = 0L
+
     private val periodicCheckRunnable = object : Runnable {
         override fun run() {
+            // CRITICAL FIX (v1.5.65): Always remove any pending duplicates FIRST, then
+            // schedule exactly ONE next run. This guarantees a single runnable in the queue
+            // regardless of how many got stacked by prior bugs or rapid onServiceConnected calls.
+            handler.removeCallbacks(this)
+
+            // THROTTLE GUARD: if we ran less than 3 seconds ago, something is wrong (stacked
+            // runnables from prior doubling bug). Skip and re-schedule at normal interval.
+            val now = System.currentTimeMillis()
+            if (now - lastPeriodicRunMs < 3000) {
+                handler.postDelayed(this, 10000)
+                return
+            }
+            lastPeriodicRunMs = now
+
+            var nextDelayMs = 10000L
             try {
                 // BATTERY OPTIMIZATION: Pause work if screen is off
                 val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
                 if (!pm.isInteractive) {
                     Log.v(TAG, "Screen is off - skipping periodic check")
-                    handler.postDelayed(this, 5000)
+                    nextDelayMs = 5000
                     return
                 }
 
@@ -70,7 +89,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                     val kidsOn = KidsModeManager(this@KiddoLockAccessibilityService).isEnabled
                     if (!kidsOn) {
                         Log.v(TAG, "Kids Mode OFF - dormant mode, next check in 60s")
-                        handler.postDelayed(this, 60000)
+                        nextDelayMs = 60000
                         return
                     }
                 } catch (_: Throwable) {}
@@ -89,18 +108,10 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                         if (realPkg != null) {
                             if (appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) {
                                 Log.v(TAG, "Periodic check: Actual window is $realPkg (Safe). Skipping stale block for $pkg")
-                                // 2. CHECK: If we are on a safe screen (Home/System/Allowed), hide any stale overlay
+                                // CHECK: If we are on a safe screen (Home/System/Allowed), hide any stale overlay
                                 val timeSinceBlock = System.currentTimeMillis() - lastBlockTime
-                                
-                                // CRITICAL CPU-LOOP FIX (v1.5.59): only send HIDE_OVERLAY if an overlay
-                                // is ACTUALLY shown. The launcher fires dozens of accessibility events per
-                                // second; the old code sent startService(HIDE_OVERLAY) on EVERY one once
-                                // 5s had passed since a block — even when no overlay existed. That spun
-                                // KiddoLock to ~75% CPU and caused a black screen. Gating on
-                                // OverlayService.isOverlayCurrentlyShown means HIDE fires once, the flag
-                                // flips false, and the loop stops immediately.
+
                                 if (OverlayService.isOverlayCurrentlyShown &&
-                                    (appManager.isLauncher(realPkg) || appManager.isSystemProtected(realPkg)) &&
                                     timeSinceBlock > 5000) {
                                     Log.v(TAG, "Hiding stale overlay (Time since block: $timeSinceBlock ms)")
                                     val intent = Intent(this@KiddoLockAccessibilityService, OverlayService::class.java).apply {
@@ -119,7 +130,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
                         // 1. Record usage
                         checkAndRecordUsage(pkg)
-                        
+
                         // 2a. FULL LOCK when daily limit reached - even launcher gets blocked
                         // EXCEPTIONS that bypass full lock:
                         //   - Essential apps (dialer, SMS, WhatsApp)
@@ -135,8 +146,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
                             // Daily limit hit - lockdown screen
                             Log.i(TAG, "Periodic check: Daily limit reached. FULL LOCK on $pkg")
                             showBlockOverlay(pkg)
-                            // schedule continuation
-                            handler.postDelayed(this, 5000)
+                            nextDelayMs = 5000
                             return@let
                         }
 
@@ -153,8 +163,9 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             } catch (e: Exception) {
                 Log.e(TAG, "Critical error in periodic check loop", e)
             } finally {
-                // Increased frequency: 3 seconds for active foreground apps
-                handler.postDelayed(this, 10000)
+                // SINGLE scheduling point (v1.5.65): only ONE postDelayed in the entire runnable.
+                // All paths set nextDelayMs instead of calling postDelayed themselves.
+                handler.postDelayed(this, nextDelayMs)
             }
         }
     }
@@ -233,8 +244,10 @@ class KiddoLockAccessibilityService : AccessibilityService() {
 
         // 🔥 CRITICAL: Update foreground package tracking BEFORE debouncing.
         // Otherwise periodic checks (daily limit, bedtime, instant lock) use stale data and don't enforce.
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-            event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+        // v1.5.62: only treat FULL-SCREEN window-state changes as a foreground switch. Background
+        // events (Gmail sync, Waze service) are no longer recorded as the foreground package, so
+        // the periodic check won't later block them on the home screen.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && event.isFullScreen) {
             currentForegroundPackage = packageName
         }
 
@@ -242,8 +255,14 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             try {
                 val isInstantBlock = AppBlockManager.isAppBlocked(this, packageName)
+                // INSTANT BLOCK (v1.5.64): block the MOMENT a blocked app comes to the foreground —
+                // exactly like every other parental-control app. TYPE_WINDOW_STATE_CHANGED only fires
+                // when an Activity actually moves to the foreground; background work (Gmail sync,
+                // Waze service) does NOT emit it. So we no longer need isFullScreen/UsageStats gating
+                // that caused the multi-second delay. Zero delay, accurate.
                 if (isInstantBlock && !AppBlockManager.isGlobalSuppressed
-                    && !AppBlockManager.isTemporarilyUnlocked(packageName)) {
+                    && !AppBlockManager.isTemporarilyUnlocked(packageName)
+                    && System.currentTimeMillis() > com.kiddolock.app.ui.OverlayService.goHomeCooldownUntil) {
                     Log.i(TAG, "⚡ INSTANT BLOCK: $packageName")
                     lastNavigationTime = System.currentTimeMillis()
                     // ⚡ Show overlay FIRST so screen is covered instantly.
@@ -259,6 +278,25 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             } catch (e: Exception) {
                 Log.e(TAG, "Instant block check failed for $packageName", e)
             }
+        }
+
+        // ⚡ FAST-PATH for focus events: if a blocked app gains focus and the INSTANT BLOCK
+        // above didn't fire (Samsung sometimes sends TYPE_VIEW_FOCUSED instead of
+        // TYPE_WINDOW_STATE_CHANGED), block it immediately BEFORE debouncing.
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            try {
+                if (AppBlockManager.isAppBlocked(this, packageName)
+                    && !AppBlockManager.isGlobalSuppressed
+                    && !AppBlockManager.isTemporarilyUnlocked(packageName)
+                    && System.currentTimeMillis() > com.kiddolock.app.ui.OverlayService.goHomeCooldownUntil) {
+                    Log.i(TAG, "⚡ FOCUS BLOCK: $packageName")
+                    showBlockOverlay(packageName)
+                    handler.postDelayed({
+                        try { performGlobalAction(GLOBAL_ACTION_HOME) } catch (_: Throwable) {}
+                    }, 250L)
+                    return
+                }
+            } catch (_: Exception) {}
         }
 
         // 🚀 DEBOUNCING (heavy work only): max 1 secondary check per 2500ms.
@@ -284,8 +322,10 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             
             if (!packageName.contains("com.android.systemui") && packageName != this.packageName) {
-                currentForegroundPackage = packageName
-                
+                // v1.5.62: do NOT update currentForegroundPackage here (it was updated above only
+                // for full-screen switches). Updating on every event let background apps pose as
+                // the foreground.
+
                 // FORCE HIDE: If we transition to a launcher, immediately kill any lingering overlay
                 val appManager = AppBlockManager.getAppManager(this)
                 // REGRESSION FIX: If we just blocked an app, we want the overlay to STAY visible
@@ -312,6 +352,13 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         // Skip our own app and system UI for blocking
         if (packageName == this.packageName || packageName.contains("com.kiddolock.app")) return
         if (packageName == "com.android.systemui") return
+
+        // FOREGROUND VERIFICATION (v1.5.63): full-screen check only — instant, no UsageStats delay.
+        // Background-app events (Gmail sync, Waze service) are not full-screen, so they're filtered
+        // here without the 10-second lag the UsageStats approach caused.
+        if (!event.isFullScreen) {
+            return
+        }
 
         try {
             // 0.1 Absolute Whitelist Check (Launcher & Core System)
@@ -358,7 +405,8 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             // PER-APP RULE: If the app is temporarily unlocked by PIN, allow it.
             // Do not block critical apps during this window (allows for fixes or uninstallation).
             if (kidsMode.isEnabled && isCritical && !packageName.contains("kiddolock") &&
-                !AppBlockManager.isGlobalSuppressed && !AppBlockManager.isTemporarilyUnlocked(packageName)) {
+                !AppBlockManager.isGlobalSuppressed && !AppBlockManager.isTemporarilyUnlocked(packageName) &&
+                System.currentTimeMillis() > com.kiddolock.app.ui.OverlayService.goHomeCooldownUntil) {
                 Log.w(TAG, "SAFEGUARD: Blocking critical app $packageName")
                 // SAFETY FIX (v1.5.56): do NOT call performGlobalAction(HOME) directly here.
                 // The old code pressed HOME unconditionally, then called showBlockOverlay which
@@ -374,7 +422,7 @@ class KiddoLockAccessibilityService : AccessibilityService() {
             val isBlocked = AppBlockManager.isAppBlocked(this, packageName)
             Log.v(TAG, "Check: pkg=$packageName isBlocked=$isBlocked kidsOn=${kidsMode.isEnabled}")
             
-            if (isBlocked) {
+            if (isBlocked && System.currentTimeMillis() > com.kiddolock.app.ui.OverlayService.goHomeCooldownUntil) {
                 Log.i(TAG, "Blocking $packageName (isAppBlocked=true)")
                 showBlockOverlay(packageName)
                 return
@@ -559,6 +607,41 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         }
     }
 
+    // FOREGROUND VERIFICATION (v1.5.62): confirm a package is genuinely the foreground app
+    // via UsageStats (non-blocking, unlike rootInActiveWindow). Prevents background apps
+    // (Gmail sync, Waze service) from triggering a block on the home screen. Cached 800ms.
+    @Volatile private var cachedRealFg: String? = null
+    @Volatile private var cachedRealFgTime: Long = 0L
+    private fun isRealForeground(pkg: String): Boolean {
+        return try {
+            val now = System.currentTimeMillis()
+            val fg = if (now - cachedRealFgTime < 800L && cachedRealFg != null) {
+                cachedRealFg
+            } else {
+                val usm = getSystemService(Context.USAGE_STATS_SERVICE) as? android.app.usage.UsageStatsManager
+                var last: String? = null
+                if (usm != null) {
+                    val events = usm.queryEvents(now - 10_000L, now)
+                    val ev = android.app.usage.UsageEvents.Event()
+                    while (events.hasNextEvent()) {
+                        events.getNextEvent(ev)
+                        if (ev.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED) {
+                            last = ev.packageName
+                        }
+                    }
+                }
+                cachedRealFg = last
+                cachedRealFgTime = now
+                last
+            }
+            // If we couldn't determine foreground, fail OPEN (allow the block) to keep protection.
+            // If we did determine it, the package must match to be considered foreground.
+            fg == null || fg == pkg
+        } catch (_: Throwable) {
+            true  // never let verification break blocking
+        }
+    }
+
     override fun onInterrupt() {}
 
     override fun onServiceConnected() {
@@ -566,15 +649,15 @@ class KiddoLockAccessibilityService : AccessibilityService() {
         Log.i(TAG, "Service connected. Configuring...")
 
         serviceInfo = serviceInfo?.apply {
-            // CPU-LOOP FIX (v1.5.59): removed TYPE_WINDOW_CONTENT_CHANGED. That event fires dozens
-            // of times per second on the Samsung launcher (widgets, animations, clocks) and was the
-            // engine that drove our runaway loop. WINDOW_STATE_CHANGED + WINDOWS_CHANGED are enough
-            // to detect app switches, which is all we need. notificationTimeout raised to 300ms to
-            // further debounce bursts.
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                         AccessibilityEvent.TYPE_WINDOWS_CHANGED
+            // INSTANT-BLOCK FIX (v1.5.64): listen to TYPE_WINDOW_STATE_CHANGED ONLY. This is the
+            // event every other parental-control app uses — it fires the MOMENT an Activity comes to
+            // the foreground (a real app switch), and NOT for background work (Gmail sync, Waze
+            // service). Removing TYPE_WINDOWS_CHANGED kills the background noise that caused both the
+            // CPU load and the false "Gmail block on home screen" bug. notificationTimeout dropped to
+            // 0 so the event reaches us with zero added delay → blocking is immediate, same second.
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 300
+            notificationTimeout = 0
             flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
     } ?: serviceInfo
 

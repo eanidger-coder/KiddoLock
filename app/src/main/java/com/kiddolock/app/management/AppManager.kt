@@ -90,6 +90,7 @@ class AppManager(private val context: Context) {
         "com.google.android.apps.walletnfcrel", // Google Wallet (modern)
         "com.google.android.apps.wallet",       // Google Wallet (legacy)
         "com.google.android.gms.wallet",
+        "com.google.android.gms",              // GMS itself — Wallet/Pay run INSIDE this package
         "com.android.vending.wallet",
         "com.samsung.android.spay",             // Samsung Pay
         "com.samsung.android.samsungpay.gear",
@@ -408,7 +409,14 @@ class AppManager(private val context: Context) {
         "android",
         "com.google.android.apps.wellbeing",
         "com.google.android.permissioncontroller",
-        "com.android.settings.intelligence"
+        "com.android.settings.intelligence",
+        // Lock screen / biometrics — these fire when the child unlocks the device
+        "com.samsung.android.biometrics.app.setting",
+        "com.samsung.android.biometrics.service",
+        "com.android.keyguard",
+        "com.samsung.android.keyguardwallpaperupdator",
+        "com.google.android.apps.setupwizard",
+        "com.sec.android.app.SecSetupWizard"
     )
 
     private val launcherPackages = HashSet<String>()

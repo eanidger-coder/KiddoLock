@@ -33,6 +33,11 @@ class OverlayService : Service() {
         @Volatile var isOverlayCurrentlyShown: Boolean = false
             private set
 
+        // SAFETY (v1.5.70): After user taps "צא למקום בטוח", block re-triggering for 2.5s.
+        // Without this, AccessibilityService sees the blocked app still in foreground during
+        // the HOME transition and re-fires INSTANT BLOCK immediately, trapping the user.
+        @Volatile var goHomeCooldownUntil: Long = 0L
+
         // Minimum time the overlay must remain visible before periodic-check can hide it.
         // 2 seconds is enough for a user to register what happened.
         const val MIN_OVERLAY_DISPLAY_MS = 2_500L
@@ -513,6 +518,8 @@ class OverlayService : Service() {
     }
 
     private fun goHome() {
+        // Set cooldown BEFORE sending HOME, so AccessibilityService won't re-block
+        goHomeCooldownUntil = System.currentTimeMillis() + 2500L
         val startMain = Intent(Intent.ACTION_MAIN)
         startMain.addCategory(Intent.CATEGORY_HOME)
         startMain.flags = Intent.FLAG_ACTIVITY_NEW_TASK
